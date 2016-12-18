@@ -292,7 +292,8 @@ export function executeSparqlQuery<Binding>(endpoint: string, query: string) {
             url: endpoint,
             contentType: 'application/sparql-query',
             headers: {
-                Accept: 'application/json, text/turtle',
+                "Accept": 'application/sparql-results+json', 
+                "Authorization": "Basic " + btoa('admin' + ":" + 'admin')
             },
             data: query,
             success: result => resolve(result),
