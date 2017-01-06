@@ -132,6 +132,7 @@ export class DiagramModel extends Backbone.Model {
         });
     }
 
+    //this function has never been called
     createNewDiagram(dataProvider: DataProvider): Promise<void> {
         this.dataProvider = dataProvider;
         this.trigger('state:beginLoad');
@@ -171,6 +172,7 @@ export class DiagramModel extends Backbone.Model {
         this.trigger('state:beginLoad');
 
         return Promise.all<ClassModel[], LinkType[]>([
+            //run query against database to generate class tree and link types
             this.dataProvider.classTree(),
             this.dataProvider.linkTypes(),
         ]).then(([classTree, linkTypes]) => {
