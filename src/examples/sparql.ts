@@ -8,7 +8,7 @@ import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } f
 require('jointjs/css/layout.css');
 require('jointjs/css/themes/default.css');
 
-const stardogEndpointUrl = 'http://localhost:5820/pizza/query';
+const stardogEndpointUrl = 'http://localhost:5820/country/query';
 
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
