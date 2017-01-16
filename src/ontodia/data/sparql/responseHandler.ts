@@ -10,8 +10,6 @@ const THING_URI = 'http://www.w3.org/2002/07/owl#Thing';
 const LABEL_URI = 'http://www.w3.org/2000/01/rdf-schema#label';
 
 export function getClassTree(response: SparqlResponse<ClassBinding>): ClassModel[] {
-    console.log("sparql response:"); 
-    console.log(response);
     const sNodes = response.results.bindings;
     const tree: ClassModel[] = [];
     const createdTreeNodes: Dictionary<ClassModel> = {};
@@ -33,7 +31,6 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): ClassModel
         } else {
             const newNode = getClassModel(sNode);
             createdTreeNodes[sNodeId] = newNode;
-
             if (sNode.parent) {
                 const sParentNodeId: string = sNode.parent.value;
                 let parentNode: ClassModel;
@@ -114,8 +111,7 @@ export function getLinkTypes(response: SparqlResponse<LinkTypeBinding>): LinkTyp
             linkTypes.push(instancesMap[sInstTypeId]);
         }
 
-    };
-
+    }; 
     return linkTypes;
 }
 
