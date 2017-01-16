@@ -45,11 +45,6 @@ export interface TypeStyle {
     icon?: string;
 }
 
-const DefaultToSVGOptions: ToSVGOptions = {
-    elementsToRemoveSelector: '.link-tools, .marker-vertices',
-    convertImagesToDataUris: true,
-};
-
 /**
  * Properties:
  *     language: string
@@ -69,6 +64,13 @@ export class DiagramView extends Backbone.Model {
     readonly selection = new Backbone.Collection<Element>();
 
     private colorSeed = 0x0BADBEEF;
+
+    public dragAndDropElements: Dictionary<Element>;
+
+    private toSVGOptions: ToSVGOptions = {
+        elementsToRemoveSelector: '.link-tools, .marker-vertices',
+        convertImagesToDataUris: true,
+    };
 
     private linkMarkers: Dictionary<{
         start: SVGMarkerElement;
@@ -121,7 +123,7 @@ export class DiagramView extends Backbone.Model {
     cancelSelection() { this.selection.reset([]); }
 
     print() {
-        toSVG(this.paper, DefaultToSVGOptions).then(svg => {
+        this.exportSVG().then(svg => {
             const printWindow = window.open('', undefined, 'width=1280,height=720');
             printWindow.document.write(svg);
             printWindow.print();
@@ -129,14 +131,12 @@ export class DiagramView extends Backbone.Model {
     }
 
     exportSVG(): Promise<string> {
-        return toSVG(this.paper, {...DefaultToSVGOptions, preserveDimensions: true});
+        return toSVG(this.paper, this.toSVGOptions);
     }
 
     exportPNG(options: ToDataURLOptions = {}): Promise<string> {
-        return toDataURL(this.paper, {
-            ...options,
-            svgOptions: {...DefaultToSVGOptions, ...options.svgOptions},
-        });
+        options.svgOptions = options.svgOptions || this.toSVGOptions;
+        return toDataURL(this.paper, options);
     }
 
     adjustPaper() {
@@ -356,6 +356,9 @@ export class DiagramView extends Backbone.Model {
         return label ? label : { text: uri2name(linkTypeId), lang: '' };
     }
 
+    /**
+     * @param types Type signature, MUST BE sorted; see DiagramModel.normalizeData()
+     */
     public getTypeStyle(types: string[]): TypeStyle {
         types.sort();
 
