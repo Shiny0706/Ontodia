@@ -48,7 +48,8 @@ export class DiagramModel extends Backbone.Model {
     private nextLinkTypeIndex = 0;
     private linkTypes: Dictionary<FatLinkType>;
 
-    private linksByType: Dictionary<Link[]> = {};
+    elements: { [id: string]: Element } = {};
+    linksByType: { [type: string]: Link[] } = {};
 
     private classFetchingThread: DataFetchingThread;
     private linkFetchingThread: DataFetchingThread;
@@ -419,6 +420,7 @@ export class DiagramModel extends Backbone.Model {
         return fatLinkType;
     }
 
+    // Normalize the loaded elements to match model's element standard
     private onElementInfoLoaded(elements: Dictionary<ElementModel>) {
         for (const id of Object.keys(elements)) {
             const element = this.getElement(id);
