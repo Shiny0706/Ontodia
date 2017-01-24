@@ -33,6 +33,9 @@ import { LinkView } from './linkView';
 import { SeparatedElementView } from './separatedElementView';
 import { ElementLayer } from './elementLayer';
 
+import {EditorToolbar} from "../widgets/toolbar";
+import {FilterParams} from "../data/provider";
+
 export interface DiagramViewOptions {
     typeStyleResolvers?: TypeStyleResolver[];
     linkStyleResolvers?: LinkStyleResolver[];
@@ -56,6 +59,10 @@ export class DiagramView extends Backbone.Model {
     private typeStyleResolvers: TypeStyleResolver[];
     private linkStyleResolvers: LinkStyleResolver[];
     private templatesResolvers: TemplateResolver[];
+    private model: DiagramModel;
+    private classIds : string[] = [];
+
+    toolbar: EditorToolbar;
 
     paper: joint.dia.Paper;
     halo: Halo;
@@ -82,6 +89,7 @@ export class DiagramView extends Backbone.Model {
         public readonly options: DiagramViewOptions = {}
     ) {
         super();
+        this.model = model;
         this.setLanguage('en');
         this.paper = new joint.dia.Paper({
             model: this.model.graph,
@@ -112,9 +120,89 @@ export class DiagramView extends Backbone.Model {
         this.listenTo(this.paper, 'render:done', () => {
             this.model.trigger('state:renderDone');
         });
+
+        // TODO: remove this redundant operation
+        this.model = this.model.bind(this);
+
+        this.addFilteredElementsToDiagram = this.addFilteredElementsToDiagram.bind(this);
+
         this.listenTo(model, 'state:dataLoaded', () => {
             this.model.resetHistory();
+            _.each(this.model.classTree, clazz => {
+                this.classIds.push(clazz.id);
+            });
+
+            this.model.initBatchCommand();
+
+            let elementsToSelect: Element[] = [];
+
+            let totalXOffset = 0;
+            let x = 1, y = 1;
+            for (const elementId of this.classIds) {
+                const element = this.getClassElement(elementId);
+                totalXOffset = this.addElementToDiagram(element, x, y, totalXOffset, elementsToSelect);
+                let request = this.createElementRequest(elementId);
+                // Add filtered elements related to current element
+                this.model.dataProvider.filter(request).then(elements => {
+                    this.addFilteredElementsToDiagram(elements, elementsToSelect);
+                });
+            }
+
+            this.toolbar.props.onForceLayout();
+            this.selection.reset(elementsToSelect);
+
+            this.model.storeBatchCommand();
         });
+    }
+
+    private createElementRequest(elementId: string) : FilterParams {
+        const language: string = this.get('language');
+        // TODO: Fix offset and limit
+        const request: FilterParams = {
+            offset: 0, limit: 1000,
+            languageCode: language ? language : 'en',
+            elementTypeId: elementId,
+        };
+        return request;
+    }
+
+    private addFilteredElementsToDiagram(elements: Dictionary<ElementModel>, elementsToSelect: Element[]) {
+        let filteredElements: Element[] = [];
+        for (const elementId in elements) {
+            if (elements.hasOwnProperty(elementId)) {
+                //check for existing of element on diagram
+                let element = this.model.elements[elementId];
+                if (!element) {
+                    element = this.model.createElement(elements[elementId]);
+                }
+                filteredElements.push(element);
+                element.unset('selectedInFilter');
+            }
+        }
+        let x = 1, y = 1 ;
+
+        let totalXOffset = 0;
+         _.each(filteredElements, el =>  {
+             totalXOffset = this.addElementToDiagram(el, x, y, totalXOffset, elementsToSelect);
+         });
+
+    }
+
+    private addElementToDiagram(element: Element, x: number, y: number, totalXOffset: number, elementsToSelect: Element[] ):number {
+        element.set('presentOnDiagram', true);
+        element.set('selectedInFilter', false);
+        const size: { width: number; height: number; } = element.get('size');
+        if (this.classIds.length === 1) {
+            x -= size.width / 2;
+            y -= size.height / 2;
+        }
+        const ignoreHistory = {ignoreCommandManager: true};
+        element.set('position', {x: x + totalXOffset, y: y}, ignoreHistory);
+        totalXOffset += size.width + 20;
+
+        elementsToSelect.push(element);
+        element.focus();
+        return totalXOffset;
     }
 
     getLanguage(): string { return this.get('language'); }
@@ -282,11 +370,13 @@ export class DiagramView extends Backbone.Model {
         e.preventDefault();
         let elementIds: string[];
         try {
+            // Elements dragged from filter panel
             elementIds = JSON.parse(e.dataTransfer.getData('application/x-ontodia-elements'));
         } catch (ex) {
             try {
                 elementIds = JSON.parse(e.dataTransfer.getData('text')); // IE fix
             } catch (ex) {
+                // Elements dragged from the class panel (Single element)
                 const draggedUri = e.dataTransfer.getData('text/uri-list');
                 // element dragged from the class tree has URI of the form:
                 // <window.location without hash>#<class URI>
@@ -328,7 +418,7 @@ export class DiagramView extends Backbone.Model {
         this.model.storeBatchCommand();
     }
 
-    //TODO: understand this method
+    // Add selected element to model
     private getDragAndDropElement(elementId: string): Element {
         if (this.model.elements[elementId]) {
             return this.model.elements[elementId];
@@ -343,6 +433,9 @@ export class DiagramView extends Backbone.Model {
                 label: {values: [{lang: '', text: elementId}]},
                 properties: {},
             });
+        }
+    }
+
     private createElementAt(elementId: string, position: { x: number; y: number; center?: boolean; }) {
         const element = this.model.createElement(elementId);
 
@@ -355,6 +448,15 @@ export class DiagramView extends Backbone.Model {
         element.set('position', {x, y});
 
         return element;
+    }
+
+    private getClassElement(elementId: string): Element {
+        return this.model.createElement({
+            id: elementId,
+            types: [],
+            label: {values: [{lang: '', text: elementId}]},
+            properties: {},
+        });
     }
 
     public getLocalizedText(texts: LocalizedString[]): LocalizedString {
