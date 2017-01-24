@@ -15,6 +15,7 @@ const DEFAULT_PREFIX =
 
 const GREED_STEP = 150;
 
+//Used in SparQLConstructor, SparQLRDFGraph and WikiDataGraph
 export class GraphBuilder {
     constructor(
         public dataProvider: DataProvider,

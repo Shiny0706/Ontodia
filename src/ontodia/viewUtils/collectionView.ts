@@ -51,6 +51,7 @@ export class CollectionView<TModel extends Backbone.Model> extends Backbone.View
         }
     }
 
+    //Update items on filter panel when filter criterion changed
     private onReset() {
         // 'reset' event on collection do not trigger
         // 'add' and 'remove' events on models
