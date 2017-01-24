@@ -39,7 +39,7 @@ export class Workspace extends Component<Props, State> {
     private markup: WorkspaceMarkup;
 
     private readonly model: DiagramModel;
-    private readonly diagram: DiagramView;
+    private diagram: DiagramView;
     private tree: ClassTree;
     private linksToolbox: LinkTypesToolboxShell;
 
@@ -93,6 +93,9 @@ export class Workspace extends Component<Props, State> {
             view: this.diagram,
             el: this.markup.classTreePanel,
         }).render();
+
+        //TODO: fix this bad assign operation
+        this.diagram.toolbar = this.markup.props.toolbar;
 
         this.tree.on('action:classSelected', (classId: string) => {
             this.setState({criteria: {elementTypeId: classId}});

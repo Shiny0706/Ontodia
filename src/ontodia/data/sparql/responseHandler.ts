@@ -173,6 +173,7 @@ export function getLinksTypesOf(response: SparqlResponse<LinkTypeBinding>): Link
     return sparqlLinkTypes.map((sLink: LinkTypeBinding) => getLinkType(sLink));
 }
 
+// Process filtered data returned from SparQL query
 export function getFilteredData(response: SparqlResponse<ElementBinding>): Dictionary<ElementModel> {
     const sInstances = response.results.bindings;
     const instancesMap: Dictionary<ElementModel> = {};
