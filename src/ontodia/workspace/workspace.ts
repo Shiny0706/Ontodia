@@ -1,8 +1,6 @@
 import * as $ from 'jquery';
 import { Component, createElement, ReactElement, DOM as D } from 'react';
 import * as Backbone from 'backbone';
-import * as browser from 'detect-browser';
-import * as joint from 'jointjs';
 
 import { DiagramModel } from '../diagram/model';
 import { Link, FatLinkType } from '../diagram/elements';
@@ -52,17 +50,7 @@ export class Workspace extends Component<Props, State> {
         this.state = {};
     }
 
-    private isUnsupportedBrowser() {
-        return browser.name === 'ie';
-    }
-
     render(): ReactElement<any> {
-        if (this.isUnsupportedBrowser()) {
-            return D.div({className: 'alert alert-danger'}, `You seem to be using Internet Explorer. 
-                The key features of Ontodia are not supported for this browser. 
-                We recommend the following alternatives: Microsoft Edge, Google Chrome, Opera and Mozilla Firefox. 
-                Thanks for your understanding!`);
-        }
         return createElement(WorkspaceMarkup, {
             ref: markup => { this.markup = markup; },
             isViewOnly: this.props.isViewOnly,
@@ -96,10 +84,9 @@ export class Workspace extends Component<Props, State> {
     }
 
     componentDidMount() {
-        if (this.isUnsupportedBrowser()) { return; }
-        if (this.props.isViewOnly) { return; }
-
         this.diagram.initializePaperComponents();
+
+        if (this.props.isViewOnly) { return; }
 
         this.tree = new ClassTree({
             model: new Backbone.Model(this.diagram.model),
@@ -130,7 +117,7 @@ export class Workspace extends Component<Props, State> {
         $(this.markup.element).find('.filter-item').each(resizeItem);
         $(window).resize(this.onWindowResize);
 
-        if (!this.props.isViewOnly && !this.props.hideTutorial) {
+        if (!this.props.hideTutorial) {
             showTutorialIfNotSeen();
         }
     }
@@ -198,13 +185,9 @@ export class Workspace extends Component<Props, State> {
         }
         this.markup.paperArea.adjustPaper();
         translateToCenter({
-            nodes, paperBox: {
-                x: 0,
-                y: 0,
-                width: this.diagram.paper.el.clientWidth / this.markup.paperArea.getScale(),
-                height: this.diagram.paper.el.clientHeight / this.markup.paperArea.getScale(),
-            },
-            graphBox: joint.V(this.diagram.paper.viewport).bbox(true, this.diagram.paper.svg)
+            nodes,
+            paperSize: this.markup.paperArea.getPaperSize(),
+            contentBBox: this.markup.paperArea.getContentFittingBox(),
         });
 
         for (const node of nodes) {

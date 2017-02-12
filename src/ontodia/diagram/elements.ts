@@ -4,8 +4,6 @@ import * as joint from 'jointjs';
 import { ClassModel, ElementModel, LocalizedString } from '../data/model';
 import { DiagramModel, PreventLinksLoading } from './model';
 
-export type Label = { values: LocalizedString[] };
-
 export class UIElement extends joint.shapes.basic.Generic {
     markup: string;
     defaults() {
@@ -15,7 +13,7 @@ export class UIElement extends joint.shapes.basic.Generic {
         }, joint.shapes.basic.Generic.prototype.defaults);
     }
 }
-UIElement.prototype.markup = '<g class="rotatable"><g class="nonscalable rootOfUI"/></g>';
+UIElement.prototype.markup = '<g class="rotatable"><rect class="rootOfUI"/></g>';
 
 /**
  * Properties:
@@ -35,6 +33,9 @@ export class Element extends UIElement {
     /** All in and out links of the element */
     links: Link[] = [];
 
+    get isExpanded(): boolean { return this.get('isExpanded'); }
+    set isExpanded(value: boolean) { this.set('isExpanded', value); }
+
     initialize() {
         joint.shapes.basic.Generic.prototype.initialize.apply(this, arguments);
         this.set('z', 1);
@@ -48,6 +49,10 @@ export class Element extends UIElement {
 
     focus() {
         this.trigger('focus-on-me', this);
+    }
+
+    iriClick(iri: string) {
+        this.trigger('action:iriClick', iri);
     }
 }
 
@@ -73,10 +78,15 @@ export class FatClassModel extends Backbone.Model {
 /**
  * Properties:
  *     id: string
- *     label: Label
+ *     label: { values: LocalizedString[] }
  */
 export class RichProperty extends Backbone.Model {
-    constructor(model: { id: string, label: Label }) {
+    get label(): { values: LocalizedString[] } { return this.get('label'); }
+
+    constructor(model: {
+        id: string;
+        label: { values: LocalizedString[] };
+    }) {
         super({id: model.id});
         this.set('label', model.label);
     }
@@ -113,6 +123,9 @@ export class Link extends joint.dia.Link {
 
     get typeId(): string { return this.get('typeId'); }
 
+    get sourceId(): string { return this.get('source').id; }
+    get targetId(): string { return this.get('target').id; }
+
     get layoutOnly(): boolean { return this.get('layoutOnly'); }
     set layoutOnly(value: boolean) { this.set('layoutOnly', value); }
 
@@ -142,7 +155,12 @@ export class FatLinkType extends Backbone.Model {
     set label(value: { values: LocalizedString[] }) { this.set('label', value); }
 
     get visible(): boolean { return this.get('visible'); }
-    set visible(value: boolean) { this.set('visible', value); }
+    setVisibility(
+        params: { visible: boolean; showLabel: boolean; },
+        options?: PreventLinksLoading,
+    ) {
+        this.set(params, options);
+    }
 
     constructor(params: {
         id: string;
@@ -161,19 +179,13 @@ export class FatLinkType extends Backbone.Model {
         this.listenTo(this, 'change:visible', this.onVisibilityChanged);
     }
 
-    private onVisibilityChanged(self: FatLinkType, visible: boolean, options: PreventLinksLoading) {
-        const links = this.diagram.linksOfType(this.id);
-
+    private onVisibilityChanged(self: this, visible: boolean, options: PreventLinksLoading) {
         if (visible) {
-            for (const link of links) {
-                if (this.diagram.sourceOf(link) && this.diagram.targetOf(link)) {
-                    this.diagram.graph.addCell(link);
-                }
-            }
             if (!options.preventLoading) {
                 this.diagram.requestLinksOfType([this.id]);
             }
         } else {
+            const links = [...this.diagram.linksOfType(this.id)];
             for (const link of links) {
                 link.remove();
             }
