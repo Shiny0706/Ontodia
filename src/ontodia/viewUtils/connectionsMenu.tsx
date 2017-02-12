@@ -178,7 +178,15 @@ export class ConnectionsMenu {
             element.position(startX + (xi++) * GRID_STEP, startY + (yi) * GRID_STEP);
         });
 
+        const hasChosenLinkType = this.selectedLink && this.selectedLink !== ALL_RELATED_ELEMENTS_LINK;
+        if (hasChosenLinkType && !this.selectedLink.visible) {
+            // prevent loading here because of .requestLinksOfType() call
+            this.selectedLink.setVisibility({visible: true, showLabel: true}, {preventLoading: true});
+        }
+
         this.view.model.requestElementData(addedElements);
+        this.view.model.requestLinksOfType();
+
         this.options.view.adjustPaper();
         this.options.onClose();
     };
@@ -196,7 +204,7 @@ export class ConnectionsMenu {
             element.addToFilter();
             // this.options.onClose();
         } else {
-            let selectedElement = this.view.model.elements[this.cellView.model.id];
+            const selectedElement = this.view.model.getElement(this.cellView.model.id);
             selectedElement.addToFilter(link);
             // this.options.onClose();
         }
@@ -269,7 +277,7 @@ export class ConnectionsMenuMarkup
     }
 
     private onChangeFilter = (e: React.FormEvent<HTMLInputElement>) => {
-        this.state.filterKey = e.target.value;
+        this.state.filterKey = e.currentTarget.value;
         this.setState(this.state);
     };
 
