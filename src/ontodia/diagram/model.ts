@@ -48,8 +48,7 @@ export class DiagramModel extends Backbone.Model {
     private nextLinkTypeIndex = 0;
     private linkTypes: Dictionary<FatLinkType>;
 
-    elements: { [id: string]: Element } = {};
-    linksByType: { [type: string]: Link[] } = {};
+    private linksByType: Dictionary<Link[]> = {};
 
     private classFetchingThread: DataFetchingThread;
     private linkFetchingThread: DataFetchingThread;
