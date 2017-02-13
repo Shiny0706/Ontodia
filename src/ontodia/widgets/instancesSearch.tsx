@@ -280,7 +280,7 @@ export class InstancesSearch extends React.Component<InstancesSearchProps, State
     }
 }
 
-function createRequest(criteria: SearchCriteria, language: string): FilterParams {
+export function createRequest(criteria: SearchCriteria, language: string): FilterParams {
     return {
         text: criteria.text,
         elementTypeId: criteria.elementTypeId,
