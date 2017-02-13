@@ -1,10 +1,10 @@
 import { hcl } from 'd3-color';
 import * as Backbone from 'backbone';
 import * as joint from 'jointjs';
-import { merge, cloneDeep } from 'lodash';
+import { merge, cloneDeep, each } from 'lodash';
 import { createElement } from 'react';
 import { render as reactDOMRender, unmountComponentAtNode } from 'react-dom';
-
+import {createRequest } from '../widgets/instancesSearch'
 import {
     TypeStyleResolver,
     LinkStyleResolver,
@@ -33,7 +33,6 @@ import { LinkView } from './linkView';
 import { SeparatedElementView } from './separatedElementView';
 import { ElementLayer } from './elementLayer';
 
-import {EditorToolbar} from "../widgets/toolbar";
 import {FilterParams} from "../data/provider";
 
 export interface DiagramViewOptions {
@@ -62,8 +61,6 @@ export class DiagramView extends Backbone.Model {
     private model: DiagramModel;
     private classIds : string[] = [];
 
-    toolbar: EditorToolbar;
-
     paper: joint.dia.Paper;
     halo: Halo;
     connectionsMenu: ConnectionsMenu;
@@ -71,8 +68,6 @@ export class DiagramView extends Backbone.Model {
     readonly selection = new Backbone.Collection<Element>();
 
     private colorSeed = 0x0BADBEEF;
-
-    public dragAndDropElements: Dictionary<Element>;
 
     private toSVGOptions: ToSVGOptions = {
         elementsToRemoveSelector: '.link-tools, .marker-vertices',
@@ -89,7 +84,6 @@ export class DiagramView extends Backbone.Model {
         public readonly options: DiagramViewOptions = {}
     ) {
         super();
-        this.model = model;
         this.setLanguage('en');
         this.paper = new joint.dia.Paper({
             model: this.model.graph,
@@ -121,88 +115,56 @@ export class DiagramView extends Backbone.Model {
             this.model.trigger('state:renderDone');
         });
 
-        // TODO: remove this redundant operation
-        this.model = this.model.bind(this);
-
-        this.addFilteredElementsToDiagram = this.addFilteredElementsToDiagram.bind(this);
-
         this.listenTo(model, 'state:dataLoaded', () => {
             this.model.resetHistory();
-            _.each(this.model.classTree, clazz => {
-                this.classIds.push(clazz.id);
-            });
+            this.loadObjectsToPaper();
+        });
+    }
 
+    private loadObjectsToPaper() {
+        each(this.model.classTree, clazz => {
+            this.classIds.push(clazz.id);
+        });
+
+        const requests: Promise<Dictionary<ElementModel>>[] = [];
+        for (let i = 0 ; i < this.classIds.length; ++i) {
+            // TODO: Correct value of limit
+            let request = createRequest({
+                elementTypeId: this.classIds[i],
+                limit: 1000
+            }, this.getLanguage());
+
+            requests.push(this.model.dataProvider.filter(request));
+        }
+
+        Promise.all(requests).then(results => {
             this.model.initBatchCommand();
-
             let elementsToSelect: Element[] = [];
 
             let totalXOffset = 0;
-            let x = 1, y = 1;
-            for (const elementId of this.classIds) {
-                const element = this.getClassElement(elementId);
-                totalXOffset = this.addElementToDiagram(element, x, y, totalXOffset, elementsToSelect);
-                let request = this.createElementRequest(elementId);
-                // Add filtered elements related to current element
-                this.model.dataProvider.filter(request).then(elements => {
-                    this.addFilteredElementsToDiagram(elements, elementsToSelect);
+            let x = 300, y = 300;
+            let counter = 1;
+            each(results, subElements => {
+                each(subElements, el => {
+                    const element = this.createElementAt(el.id, {x: x, y: y, center:false});
+                    x += element.get('size').width;
+                    // Fixed number of element in a row: 5 elements
+                    if(counter %6 == 0) {
+                        totalXOffset = 0 ;
+                        x = 300;
+                        y += element.get('size').height + 20;
+                    }
+                    elementsToSelect.push(element);
+                    counter++;
                 });
-            }
+            });
 
-            this.toolbar.props.onForceLayout();
+            this.model.requestElementData(elementsToSelect);
+            this.model.requestLinksOfType();
             this.selection.reset(elementsToSelect);
 
             this.model.storeBatchCommand();
         });
-    }
-
-    private createElementRequest(elementId: string) : FilterParams {
-        const language: string = this.get('language');
-        // TODO: Fix offset and limit
-        const request: FilterParams = {
-            offset: 0, limit: 1000,
-            languageCode: language ? language : 'en',
-            elementTypeId: elementId,
-        };
-        return request;
-    }
-
-    private addFilteredElementsToDiagram(elements: Dictionary<ElementModel>, elementsToSelect: Element[]) {
-        let filteredElements: Element[] = [];
-        for (const elementId in elements) {
-            if (elements.hasOwnProperty(elementId)) {
-                //check for existing of element on diagram
-                let element = this.model.elements[elementId];
-                if (!element) {
-                    element = this.model.createElement(elements[elementId]);
-                }
-                filteredElements.push(element);
-                element.unset('selectedInFilter');
-            }
-        }
-        let x = 1, y = 1 ;
-
-        let totalXOffset = 0;
-         _.each(filteredElements, el =>  {
-             totalXOffset = this.addElementToDiagram(el, x, y, totalXOffset, elementsToSelect);
-         });
-
-    }
-
-    private addElementToDiagram(element: Element, x: number, y: number, totalXOffset: number, elementsToSelect: Element[] ):number {
-        element.set('presentOnDiagram', true);
-        element.set('selectedInFilter', false);
-        const size: { width: number; height: number; } = element.get('size');
-        if (this.classIds.length === 1) {
-            x -= size.width / 2;
-            y -= size.height / 2;
-        }
-        const ignoreHistory = {ignoreCommandManager: true};
-        element.set('position', {x: x + totalXOffset, y: y}, ignoreHistory);
-        totalXOffset += size.width + 20;
-
-        elementsToSelect.push(element);
-        element.focus();
-        return totalXOffset;
     }
 
     getLanguage(): string { return this.get('language'); }
@@ -395,18 +357,9 @@ export class DiagramView extends Backbone.Model {
         let totalXOffset = 0;
         let {x, y} = paperPosition;
         for (const elementId of elementIds) {
-            const element = this.getDragAndDropElement(elementId);
-            element.set('presentOnDiagram', true);
-            element.set('selectedInFilter', false);
-            const size: { width: number; height: number; } = element.get('size');
-            if (elementIds.length === 1) {
-                x -= size.width / 2;
-                y -= size.height / 2;
-            }
-            const ignoreHistory = {ignoreCommandManager: true};
-            element.set('position', {x: x + totalXOffset, y: y}, ignoreHistory);
-            totalXOffset += size.width + 20;
-
+            const center = elementIds.length === 1;
+            const element = this.createElementAt(elementId, {x: x + totalXOffset, y, center});
+            totalXOffset += element.get('size').width + 20;
             elementsToSelect.push(element);
             element.focus();
         }
@@ -416,24 +369,6 @@ export class DiagramView extends Backbone.Model {
         this.selection.reset(elementsToSelect);
 
         this.model.storeBatchCommand();
-    }
-
-    // Add selected element to model
-    private getDragAndDropElement(elementId: string): Element {
-        if (this.model.elements[elementId]) {
-            return this.model.elements[elementId];
-        } else if (this.dragAndDropElements && this.dragAndDropElements[elementId]) {
-            const element = this.dragAndDropElements[elementId];
-            this.model.initializeElement(element, {requestData: true});
-            return element;
-        } else {
-            return this.model.createElement({
-                id: elementId,
-                types: [],
-                label: {values: [{lang: '', text: elementId}]},
-                properties: {},
-            });
-        }
     }
 
     private createElementAt(elementId: string, position: { x: number; y: number; center?: boolean; }) {
@@ -448,15 +383,6 @@ export class DiagramView extends Backbone.Model {
         element.set('position', {x, y});
 
         return element;
-    }
-
-    private getClassElement(elementId: string): Element {
-        return this.model.createElement({
-            id: elementId,
-            types: [],
-            label: {values: [{lang: '', text: elementId}]},
-            properties: {},
-        });
     }
 
     public getLocalizedText(texts: LocalizedString[]): LocalizedString {

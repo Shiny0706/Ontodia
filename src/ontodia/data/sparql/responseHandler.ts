@@ -111,7 +111,8 @@ export function getLinkTypes(response: SparqlResponse<LinkTypeBinding>): LinkTyp
             linkTypes.push(instancesMap[sInstTypeId]);
         }
 
-    }; 
+    };
+
     return linkTypes;
 }
 

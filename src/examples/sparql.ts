@@ -8,7 +8,7 @@ import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } f
 require('jointjs/css/layout.css');
 require('jointjs/css/themes/default.css');
 
-const stardogEndpointUrl = 'http://localhost:5820/country/query';
+const stardogEndpoint = 'http://localhost:5820/rating/query';
 
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
@@ -24,7 +24,7 @@ function onWorkspaceMounted(workspace: Workspace) {
         layoutData,
         validateLinks: true,
         dataProvider: new SparqlDataProvider({
-            endpointUrl: stardogEndpointUrl,
+            endpointUrl: stardogEndpoint,
             imageClassUris: [
                 'http://collection.britishmuseum.org/id/ontology/PX_has_main_representation',
                 'http://xmlns.com/foaf/0.1/img',
