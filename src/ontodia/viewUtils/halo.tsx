@@ -13,6 +13,7 @@ export interface Props {
     navigationMenuOpened?: boolean;
     onToggleNavigationMenu?: () => void;
     onAddToFilter?: () => void;
+    onToggleDisplayConnectedElements?: () => void;
 }
 
 const CLASS_NAME = 'ontodia-halo';
@@ -59,7 +60,7 @@ export class Halo extends React.Component<Props, void> {
             height: bbox.height,
             width: bbox.width,
         };
-
+        // TODO: add new div element to handle displaying connected elements
         return (
             <div className={CLASS_NAME} style={style}>
                 <div className={`${CLASS_NAME}__delete`}
@@ -74,7 +75,6 @@ export class Halo extends React.Component<Props, void> {
                 <div className={`${CLASS_NAME}__add-to-filter`}
                     title='Search for connected elements'
                     onClick={this.props.onAddToFilter} />
-
                 <div className={`${CLASS_NAME}__expand ` +
                     `${CLASS_NAME}__expand--${cellExpanded ? 'closed' : 'open'}`}
                     title={`Expand an element to reveal additional properties`}

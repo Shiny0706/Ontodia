@@ -36,6 +36,7 @@ export interface State {
 }
 
 export class Workspace extends Component<Props, State> {
+    // markup contains class tree (left), paper area and connection panel (right)
     private markup: WorkspaceMarkup;
 
     private readonly model: DiagramModel;
@@ -79,6 +80,8 @@ export class Workspace extends Component<Props, State> {
                 onEditAtMainSite: () => this.props.onEditAtMainSite(this),
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
+                isIntegratingMode: true,
+                onChangeDrawingMode: drawingMode => this.diagram.virtualizeOntology(drawingMode)
             }),
         } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
     }
@@ -101,6 +104,12 @@ export class Workspace extends Component<Props, State> {
             this.setState({criteria: {refElementId: element.id, refElementLinkId: linkType && linkType.id}});
         });
 
+        this.diagram.listenTo(this.diagram, 'state:renderDone', () => {
+            this.forceLayout();
+            this.markup.paperArea.zoomToFit();
+        });
+
+        // Create links toolbox
         this.linksToolbox = new LinkTypesToolboxShell({
             model: new LinkTypesToolboxModel(this.model),
             view: this.diagram,

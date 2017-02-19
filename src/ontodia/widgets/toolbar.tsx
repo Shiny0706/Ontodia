@@ -20,6 +20,7 @@ export interface Props {
     isEmbeddedMode?: boolean;
     isDiagramSaved?: boolean;
     isIntegratingMode?: boolean;
+    onChangeDrawingMode?:(drawingMode: string) => void;
 }
 
 export interface State {
@@ -46,6 +47,11 @@ export class EditorToolbar extends React.Component<Props, State> {
     private onExportPNG = () => {
         this.props.onExportPNG(this.downloadImageLink);
     };
+
+    private onChangeDrawingMode = (event: React.SyntheticEvent<HTMLSelectElement>) => {
+        const value = event.currentTarget.value;
+        this.props.onChangeDrawingMode(value);
+    }
 
     render() {
         const intro = '<h4>Toolbox</h4>' +
@@ -150,9 +156,9 @@ export class EditorToolbar extends React.Component<Props, State> {
                     {(this.props.isIntegratingMode) ? (
                     <div className="btn-group drawModeSelector">
                         <label><span>Drawing Mode:</span></label>
-                        <select>
-                            <option value="/withRepresentation">With Representation</option>
-                            <option value="/withAssocites">With Associates</option>
+                        <select defaultValue='withRepresentation' onChange={this.onChangeDrawingMode}>
+                            <option value='withRepresentation'>With Representation</option>
+                            <option value='withAssociates'>With Associates</option>
                         </select>
                     </div>
                     ) : undefined

@@ -322,6 +322,7 @@ export class DiagramModel extends Backbone.Model {
         return element;
     }
 
+    // Load data: element's id, label, types, properties(object properties, data properties and their values)
     requestElementData(elements: Element[]) {
         return this.dataProvider.elementInfo({elementIds: elements.map(e => e.id)})
             .then(models => this.onElementInfoLoaded(models))
@@ -331,6 +332,7 @@ export class DiagramModel extends Backbone.Model {
             });
     }
 
+    // Load links that related to all elements in diagram
     requestLinksOfType(linkTypeIds?: string[]) {
         let linkTypes = linkTypeIds;
         if (!linkTypes) {
@@ -438,6 +440,7 @@ export class DiagramModel extends Backbone.Model {
         this.storeBatchCommand();
     }
 
+    // Create link after loading from db
     createLink(linkModel: LinkModel & {
         suggestedId?: string;
         vertices?: Array<{ x: number; y: number; }>;
@@ -449,7 +452,6 @@ export class DiagramModel extends Backbone.Model {
           }
           return existingLink;
         }
-
         const {linkTypeId, sourceId, targetId, suggestedId, vertices} = linkModel;
         const suggestedIdAvailable = Boolean(suggestedId && !this.cells.get(suggestedId));
 
