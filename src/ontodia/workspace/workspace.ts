@@ -1,4 +1,5 @@
-import { Component, createElement, ReactElement } from 'react';
+import * as $ from 'jquery';
+import { Component, createElement, ReactElement, DOM as D } from 'react';
 import * as Backbone from 'backbone';
 
 import { DiagramModel } from '../diagram/model';
@@ -33,6 +34,7 @@ export interface State {
 }
 
 export class Workspace extends Component<Props, State> {
+    // markup contains class tree (left), paper area and connection panel (right)
     static readonly defaultProps: { [K in keyof Props]?: any } = {
         hideTutorial: true,
     };
@@ -78,6 +80,8 @@ export class Workspace extends Component<Props, State> {
                 onEditAtMainSite: () => this.props.onEditAtMainSite(this),
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
+                isIntegratingMode: true,
+                onChangeDrawingMode: drawingMode => this.diagram.visualizeOntology(drawingMode)
             }),
         } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
     }
@@ -100,6 +104,12 @@ export class Workspace extends Component<Props, State> {
             this.setState({criteria: {refElementId: element.id, refElementLinkId: linkType && linkType.id}});
         });
 
+        this.diagram.listenTo(this.diagram, 'state:renderDone', () => {
+            this.forceLayout();
+            this.markup.paperArea.zoomToFit();
+        });
+
+        // Create links toolbox
         this.linksToolbox = new LinkTypesToolboxShell({
             model: new LinkTypesToolboxModel(this.model),
             view: this.diagram,

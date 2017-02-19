@@ -1,5 +1,6 @@
 import { createElement, ClassAttributes } from 'react';
 import * as ReactDOM from 'react-dom';
+import Config  from '../../stardogConfig';
 
 import { Workspace, WorkspaceProps, SparqlDataProvider } from '../index';
 
@@ -8,7 +9,7 @@ import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } f
 require('jointjs/css/layout.css');
 require('jointjs/css/themes/default.css');
 
-const stardogEndpoint = 'http://localhost:5820/rating/query';
+let stardogEndpoint = Config.HOSTNAME + ':' + Config.PORT +'/' + Config.DB + '/query';
 
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }

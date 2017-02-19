@@ -1,7 +1,7 @@
 import { hcl } from 'd3-color';
 import * as Backbone from 'backbone';
 import * as joint from 'jointjs';
-import { merge, cloneDeep, each } from 'lodash';
+import { merge, cloneDeep, each, filter } from 'lodash';
 import { createElement } from 'react';
 import { render as reactDOMRender, unmountComponentAtNode } from 'react-dom';
 import {createRequest } from '../widgets/instancesSearch'
@@ -33,7 +33,10 @@ import { LinkView } from './linkView';
 import { SeparatedElementView } from './separatedElementView';
 import { ElementLayer } from './elementLayer';
 
-import {FilterParams} from "../data/provider";
+const CONCEPT_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept";
+const INFORMATION_RESOURCE_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/InformationResource";
+const CONCEPT_REPRESENTATION_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/ConceptRepresentation";
+
 
 export interface DiagramViewOptions {
     typeStyleResolvers?: TypeStyleResolver[];
@@ -117,7 +120,115 @@ export class DiagramView extends Backbone.Model {
 
         this.listenTo(model, 'state:dataLoaded', () => {
             this.model.resetHistory();
-            this.loadObjectsToPaper();
+            this.visualizeOntology('withRepresentation');
+        });
+    }
+
+    visualizeOntology(drawingMode: string) {
+        this.model.graph.clear();
+        this.trigger('state:graphCleared');
+        if(drawingMode === "withRepresentation") {
+            this.visualizeWithRepresentationMode();
+        }else if(drawingMode === 'withAssociates') {
+            this.visualizeWithAssocitatesnMode();
+        }
+    }
+
+    private visualizeWithRepresentationMode (){
+        let filteredClasses = filter(this.model.classTree, clazz => {
+            return clazz.id === CONCEPT_URL
+                    || clazz.id === INFORMATION_RESOURCE_URL
+                    || clazz.id === CONCEPT_REPRESENTATION_URL;
+        });
+
+        const requests: Promise<Dictionary<ElementModel>>[] = [];
+        for (let i = 0 ; i < filteredClasses.length; ++i) {
+            // TODO: Correct value of limit
+            let request = createRequest({
+                elementTypeId: filteredClasses[i].id,
+                limit: 1000
+            }, this.getLanguage());
+
+            requests.push(this.model.dataProvider.filter(request));
+        }
+
+        Promise.all(requests).then(results => {
+            this.model.initBatchCommand();
+            let elementsToSelect: Element[] = [];
+
+            let totalXOffset = 0;
+            let x = 300, y = 300;
+            let counter = 1;
+            each(results, subElements => {
+                each(subElements, el => {
+                    //console.log(el);
+                    const element = this.createElementAt(el.id, {x: x, y: y, center:false});
+                    x += element.get('size').width;
+                    // Fixed number of element in a row: 5 elements
+                    if(counter %6 == 0) {
+                        totalXOffset = 0 ;
+                        x = 300;
+                        y += element.get('size').height + 20;
+                    }
+                    elementsToSelect.push(element);
+                    counter++;
+                });
+            });
+            this.model.requestElementData(elementsToSelect);
+            this.model.requestLinksOfType();
+            this.selection.reset(elementsToSelect);
+
+            this.model.storeBatchCommand();
+            this.trigger('state:renderDone');
+        });
+    }
+
+    private visualizeWithAssocitatesnMode() {
+
+        let filteredClasses = filter(this.model.classTree, clazz => {
+            return clazz.id === CONCEPT_URL
+                || clazz.id === INFORMATION_RESOURCE_URL;
+        });
+        // alert(filteredClasses.length);
+        const requests: Promise<Dictionary<ElementModel>>[] = [];
+        for (let i = 0 ; i < filteredClasses.length; ++i) {
+            // TODO: Correct value of limit
+            let request = createRequest({
+                elementTypeId: filteredClasses[i].id,
+                limit: 1000
+            }, this.getLanguage());
+
+            requests.push(this.model.dataProvider.filter(request));
+        }
+
+        Promise.all(requests).then(results => {
+            this.model.initBatchCommand();
+            let elementsToSelect: Element[] = [];
+
+            let totalXOffset = 0;
+            let x = 300, y = 300;
+            let counter = 1;
+            each(results, subElements => {
+                each(subElements, el => {
+                    //console.log(el);
+                    const element = this.createElementAt(el.id, {x: 0, y: 0, center:false});
+                    x += element.get('size').width;
+                    // Fixed number of element in a row: 5 elements
+                    if(counter %6 == 0) {
+                        totalXOffset = 0 ;
+                        x = 300;
+                        y += element.get('size').height + 20;
+                    }
+                    elementsToSelect.push(element);
+                    counter++;
+                });
+            });
+            this.model.requestElementData(elementsToSelect);
+            this.model.requestVirtualLinksBetweenConceptsAndResources();
+            this.selection.reset(elementsToSelect);
+
+            this.model.storeBatchCommand();
+            this.trigger('state:renderDone'); // TODO: is it too soon to trigger this event
         });
     }
 
@@ -158,7 +269,6 @@ export class DiagramView extends Backbone.Model {
                     counter++;
                 });
             });
-
             this.model.requestElementData(elementsToSelect);
             this.model.requestLinksOfType();
             this.selection.reset(elementsToSelect);
@@ -203,6 +313,7 @@ export class DiagramView extends Backbone.Model {
         }
     }
 
+    // A layer on paper-area layer
     private configureElementLayer() {
         const container = document.createElement('div');
         this.paper.el.appendChild(container);
@@ -266,7 +377,6 @@ export class DiagramView extends Backbone.Model {
 
         const container = document.createElement('div');
         this.paper.el.appendChild(container);
-
         const renderDefaultHalo = (selectedElement?: Element) => {
             let cellView: joint.dia.CellView = undefined;
             if (selectedElement) {
@@ -290,6 +400,8 @@ export class DiagramView extends Backbone.Model {
                     renderDefaultHalo(selectedElement);
                 },
                 onAddToFilter: () => selectedElement.addToFilter(),
+                onToggleDisplayConnectedElements: () => this.displayConnectedElements(selectedElement);
+
             }), container);
         };
 

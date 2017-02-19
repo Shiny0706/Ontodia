@@ -218,6 +218,7 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
         };
     }
 
+    // Request for element's properties
     private getPropertyTable(): Array<{ id: string; name: string; property: Property; }> {
         const {model, view} = this.props;
 

@@ -128,6 +128,7 @@ export interface LinkTypesToolboxProps extends Backbone.ViewOptions<LinkTypesToo
     filterCallback?: (type: FatLinkType) => void;
 }
 
+// Right connection panel
 export class LinkTypesToolbox extends React.Component<LinkTypesToolboxProps, { filterKey: string }> {
     constructor(props: LinkTypesToolboxProps) {
         super(props);
@@ -175,6 +176,7 @@ export class LinkTypesToolbox extends React.Component<LinkTypesToolboxProps, { f
         }
     };
 
+    // Aggregate all LINK TYPES related to selected element
     private getLinks = () => {
         return (this.props.links || []).filter(link => {
             const label: Label = link.get('label');

@@ -23,7 +23,13 @@ import {
 const DEFAULT_PREFIX =
 `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
  PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
- PREFIX owl:  <http://www.w3.org/2002/07/owl#>` + '\n\n';
+ PREFIX owl:  <http://www.w3.org/2002/07/owl#>
+ PREFIX my:   <http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/>
+` + '\n\n';
+
+const CONCEPT_URL = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept>";
+const ASSOCIATE_URL = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/associates>";
+const REPRESENTED_URL = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/representedIn>";
 
 export interface SparqlDataProviderOptions {
     endpointUrl: string;
@@ -183,6 +189,7 @@ export class SparqlDataProvider implements DataProvider {
         elementIds: string[];
         linkTypeIds: string[];
     }): Promise<LinkModel[]> {
+        // Get links between objects on papers
         const ids = params.elementIds.map(escapeIri).join(', ');
         const types = params.linkTypeIds.map(escapeIri).join(', ');
         const query = DEFAULT_PREFIX + `
@@ -270,6 +277,20 @@ export class SparqlDataProvider implements DataProvider {
 
 function escapeIri(iri: string) {
     return `<${iri}>`;
+}
+// TODO: export this function from somewhere else
+export function getConceptAndConceptRepresentationOfResource(endpoint: String){
+    let query = DEFAULT_PREFIX + `
+        SELECT DISTINCT ?source ?type ?target
+        WHERE {
+            ?source a ${CONCEPT_URL}.
+            ?conceptRep ?type ?source.
+            ?type rdfs:subPropertyOf ${ASSOCIATE_URL}.
+            ?conceptRep ${REPRESENTED_URL} ?target. 
+        }
+        `;
+
+    return executeSparqlQuery<ElementBinding>(endpoint, query).then(getLinksInfo);
 }
 
 export function sparqlExtractLabel(subject: string, label: string): string {
