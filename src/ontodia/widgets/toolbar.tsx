@@ -19,6 +19,7 @@ export interface Props {
     onShowTutorial: () => void;
     isEmbeddedMode?: boolean;
     isDiagramSaved?: boolean;
+    isIntegratingMode?: boolean;
 }
 
 export interface State {
@@ -140,6 +141,7 @@ export class EditorToolbar extends React.Component<Props, State> {
                         <span className='fa fa-print' aria-hidden='true' />
                     </button>
                     {(nonEmbedded && this.props.onShare) ? btnShare : undefined}
+                    {nonEmbedded ? btnHelp : undefined}
                     <span className={`btn-group ${CLASS_NAME}__language-selector`}>
                         {nonEmbedded ? <label><span>Ontology Language:</span></label> : undefined}
                         <select defaultValue='en' onChange={this.onChangeLanguage}>
@@ -147,7 +149,16 @@ export class EditorToolbar extends React.Component<Props, State> {
                             <option value='ru'>Russian</option>
                         </select>
                     </span>
-                    {nonEmbedded ? btnHelp : undefined}
+                    {(this.props.isIntegratingMode) ? (
+                    <div className="btn-group drawModeSelector">
+                        <label><span>Drawing Mode:</span></label>
+                        <select>
+                            <option value="/withRepresentation">With Representation</option>
+                            <option value="/withAssocites">With Associates</option>
+                        </select>
+                    </div>
+                    ) : undefined
+                    }
                 </div>
                 <a href='#' ref={link => { this.downloadImageLink = link; }}
                    style={{display: 'none', visibility: 'collapse'}}/>
