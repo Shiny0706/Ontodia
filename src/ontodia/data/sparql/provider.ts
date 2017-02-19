@@ -1,4 +1,5 @@
 import * as $ from 'jquery';
+import Config from '../../../../stardogConfig.ts';
 
 import { DataProvider, FilterParams } from '../provider';
 import { Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel } from '../model';
@@ -211,7 +212,7 @@ export class SparqlDataProvider implements DataProvider {
 
         return executeSparqlQuery<LinkTypeBinding>(this.options.endpointUrl, query).then(getLinksTypesOf);
     };
-
+    
     filter(params: FilterParams): Promise<Dictionary<ElementModel>> {
         if (params.limit === 0) { params.limit = 100; }
 
@@ -293,7 +294,7 @@ export function executeSparqlQuery<Binding>(endpoint: string, query: string) {
             contentType: 'application/sparql-query',
             headers: {
                 "Accept": 'application/sparql-results+json', 
-                "Authorization": "Basic " + btoa('admin' + ":" + 'admin')
+                "Authorization": "Basic " + btoa(Config.USERNAME + ":" + Config.PASSWORD)
             },
             data: query,
             success: result => resolve(result),
