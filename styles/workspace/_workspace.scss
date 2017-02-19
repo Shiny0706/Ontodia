@@ -30,6 +30,39 @@
     -ms-user-select: none;
     user-select: none;
   }
+<<<<<<< 984d55003c5e33d46260c579b0d5b97132c1ad4d
+=======
+  .drawModeSelector {
+    padding: 5px;
+    padding-top: 9px;
+  }
+}
+
+.ontodia-toolbar {
+  background: rgba(0, 0, 0, 0.15);
+}
+.ontodia-toolbar > .btn-group {
+  margin-left: 10px;
+}
+.ontodia-toolbar > .btn-group > button {
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+.ontodia-toolbar .ontodia-toolbar__undo,
+.ontodia-toolbar .ontodia-toolbar__redo {
+  display: none;
+}
+#saveToSelf span {
+  color: #0C8BFF;
+}
+#resetDiagram span {
+  color: #E2A000;
+}
+
+.ontodia-widget {
+  border-top: 1px solid lightgray;
+}
+>>>>>>> Add drawing mode selector
 
   &--horizontal-resizing * { cursor: ew-resize !important; }
   &--vertical-resizing * { cursor: ns-resize !important; }
