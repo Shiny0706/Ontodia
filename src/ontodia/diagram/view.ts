@@ -37,6 +37,7 @@ const CONCEPT_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1
 const INFORMATION_RESOURCE_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/InformationResource";
 const CONCEPT_REPRESENTATION_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/ConceptRepresentation";
 
+
 export interface DiagramViewOptions {
     typeStyleResolvers?: TypeStyleResolver[];
     linkStyleResolvers?: LinkStyleResolver[];
@@ -124,6 +125,8 @@ export class DiagramView extends Backbone.Model {
     }
 
     virtualizeOntology(drawingMode: string) {
+        this.model.graph.clear();
+        this.trigger('state:graphCleared');
         if(drawingMode === "withRepresentation") {
             this.virtualizeWithRepresentationMode();
         }else if(drawingMode === 'withAssociates') {
@@ -182,6 +185,51 @@ export class DiagramView extends Backbone.Model {
 
     private virtualizeWithAssocitatesnMode() {
 
+        let filteredClasses = filter(this.model.classTree, clazz => {
+            return clazz.id === CONCEPT_URL
+                || clazz.id === INFORMATION_RESOURCE_URL;
+        });
+        // alert(filteredClasses.length);
+        const requests: Promise<Dictionary<ElementModel>>[] = [];
+        for (let i = 0 ; i < filteredClasses.length; ++i) {
+            // TODO: Correct value of limit
+            let request = createRequest({
+                elementTypeId: filteredClasses[i].id,
+                limit: 1000
+            }, this.getLanguage());
+
+            requests.push(this.model.dataProvider.filter(request));
+        }
+
+        Promise.all(requests).then(results => {
+            this.model.initBatchCommand();
+            let elementsToSelect: Element[] = [];
+
+            let totalXOffset = 0;
+            let x = 300, y = 300;
+            let counter = 1;
+            each(results, subElements => {
+                each(subElements, el => {
+                    //console.log(el);
+                    const element = this.createElementAt(el.id, {x: 0, y: 0, center:false});
+                    x += element.get('size').width;
+                    // Fixed number of element in a row: 5 elements
+                    if(counter %6 == 0) {
+                        totalXOffset = 0 ;
+                        x = 300;
+                        y += element.get('size').height + 20;
+                    }
+                    elementsToSelect.push(element);
+                    counter++;
+                });
+            });
+            this.model.requestElementData(elementsToSelect);
+            this.model.requestVirtualLinksBetweenConceptsAndResources();
+            this.selection.reset(elementsToSelect);
+
+            this.model.storeBatchCommand();
+            this.trigger('state:renderDone'); // TODO: is it too soon to trigger this event
+        });
     }
 
     private loadObjectsToPaper() {

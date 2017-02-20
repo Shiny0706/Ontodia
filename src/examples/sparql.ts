@@ -9,7 +9,7 @@ import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } f
 require('jointjs/css/layout.css');
 require('jointjs/css/themes/default.css');
 
-let stardogEndpoint = Config.HOSTNAME + ':' + Config.PORT +'/' + Config.DB + '/query'
+let stardogEndpoint = Config.HOSTNAME + ':' + Config.PORT +'/' + Config.DB + '/query';
 
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }

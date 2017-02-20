@@ -10,9 +10,12 @@ import { DataProvider } from '../data/provider';
 import { LayoutData, LayoutElement, normalizeImportedCell, cleanExportedLayout } from './layoutData';
 import { Element, Link, FatLinkType, FatClassModel, RichProperty } from './elements';
 import { DataFetchingThread } from './dataFetchingThread';
+import Config from '../../../stardogConfig';
+import {getConceptAndConceptRepresentationOfResource} from '../data/sparql/provider';
 
 export type IgnoreCommandHistory = { ignoreCommandManager?: boolean };
 export type PreventLinksLoading = { preventLoading?: boolean; };
+
 
 type ChangeVisibilityOptions = { isFromHandler?: boolean };
 
@@ -346,6 +349,14 @@ export class DiagramModel extends Backbone.Model {
             console.error(err);
             return Promise.reject(err);
         });
+    }
+
+    requestVirtualLinksBetweenConceptsAndResources() {
+        let endpoint = Config.HOSTNAME + ':' + Config.PORT +'/' + Config.DB + '/query';
+        getConceptAndConceptRepresentationOfResource(endpoint)
+            .then(links => {
+                this.onLinkInfoLoaded(links);
+            });
     }
 
     getPropertyById(labelId: string): RichProperty {
