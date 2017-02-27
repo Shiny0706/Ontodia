@@ -105,7 +105,7 @@ export class Workspace extends Component<Props, State> {
         });
 
         this.diagram.listenTo(this.diagram, 'state:renderDone', () => {
-            this.forceLayout();
+            // this.forceLayout();
             this.markup.paperArea.zoomToFit();
         });
 
