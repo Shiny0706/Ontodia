@@ -28,9 +28,11 @@ const DEFAULT_PREFIX =
  PREFIX my:   <http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/>
 ` + '\n\n';
 
-const CONCEPT_URL = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept>";
-const ASSOCIATE_URL = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/associates>";
-const REPRESENTED_URL = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/representedIn>";
+const CONCEPT_URI = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept>";
+const ASSOCIATE_URI = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/associates>";
+const REPRESENTED_URI = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/representedIn>";
+const INCLUDE_URI = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/includes>";
+const RELATION_BETWEEN_CONCEPTS_URI = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/relationBetweenConcepts>";
 
 export interface SparqlDataProviderOptions {
     endpointUrl: string;
@@ -284,10 +286,17 @@ export function getConceptAndConceptRepresentationOfResource(endpoint: String){
     let query = DEFAULT_PREFIX + `
         SELECT DISTINCT ?source ?type ?target
         WHERE {
-            ?source a ${CONCEPT_URL}.
-            ?conceptRep ?type ?source.
-            ?type rdfs:subPropertyOf ${ASSOCIATE_URL}.
-            ?conceptRep ${REPRESENTED_URL} ?target. 
+            {
+                ?source a ${CONCEPT_URI}.
+                ?conceptRep ?type ?source.
+                ?type rdfs:subPropertyOf ${ASSOCIATE_URI}.
+                ?conceptRep ${REPRESENTED_URI} ?target.
+            }
+            UNION
+            {
+                ?source ?type ?target.
+                ?type rdfs:subPropertyOf ${RELATION_BETWEEN_CONCEPTS_URI}
+            }
         }
         `;
 

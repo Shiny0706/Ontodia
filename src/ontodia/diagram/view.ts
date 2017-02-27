@@ -161,14 +161,13 @@ export class DiagramView extends Backbone.Model {
             let counter = 1;
             each(results, subElements => {
                 each(subElements, el => {
-                    //console.log(el);
                     const element = this.createElementAt(el.id, {x: x, y: y, center:false});
                     x += element.get('size').width;
                     // Fixed number of element in a row: 5 elements
-                    if(counter %6 == 0) {
-                        totalXOffset = 0 ;
+                    if(x >800) {
+                        totalXOffset = 0;
                         x = 300;
-                        y += element.get('size').height + 20;
+                        y += element.get('size').height + 50;
                     }
                     elementsToSelect.push(element);
                     counter++;
@@ -210,14 +209,13 @@ export class DiagramView extends Backbone.Model {
             let counter = 1;
             each(results, subElements => {
                 each(subElements, el => {
-                    //console.log(el);
-                    const element = this.createElementAt(el.id, {x: 0, y: 0, center:false});
+                    const element = this.createElementAt(el.id, {x: x, y: y, center:false});
                     x += element.get('size').width;
                     // Fixed number of element in a row: 5 elements
-                    if(counter %6 == 0) {
-                        totalXOffset = 0 ;
+                    if(x >800) {
+                        totalXOffset = 0;
                         x = 300;
-                        y += element.get('size').height + 20;
+                        y += element.get('size').height + 50;
                     }
                     elementsToSelect.push(element);
                     counter++;
@@ -229,51 +227,6 @@ export class DiagramView extends Backbone.Model {
 
             this.model.storeBatchCommand();
             this.trigger('state:renderDone'); // TODO: is it too soon to trigger this event
-        });
-    }
-
-    private loadObjectsToPaper() {
-        each(this.model.classTree, clazz => {
-            this.classIds.push(clazz.id);
-        });
-
-        const requests: Promise<Dictionary<ElementModel>>[] = [];
-        for (let i = 0 ; i < this.classIds.length; ++i) {
-            // TODO: Correct value of limit
-            let request = createRequest({
-                elementTypeId: this.classIds[i],
-                limit: 1000
-            }, this.getLanguage());
-
-            requests.push(this.model.dataProvider.filter(request));
-        }
-
-        Promise.all(requests).then(results => {
-            this.model.initBatchCommand();
-            let elementsToSelect: Element[] = [];
-
-            let totalXOffset = 0;
-            let x = 300, y = 300;
-            let counter = 1;
-            each(results, subElements => {
-                each(subElements, el => {
-                    const element = this.createElementAt(el.id, {x: x, y: y, center:false});
-                    x += element.get('size').width;
-                    // Fixed number of element in a row: 5 elements
-                    if(counter %6 == 0) {
-                        totalXOffset = 0 ;
-                        x = 300;
-                        y += element.get('size').height + 20;
-                    }
-                    elementsToSelect.push(element);
-                    counter++;
-                });
-            });
-            this.model.requestElementData(elementsToSelect);
-            this.model.requestLinksOfType();
-            this.selection.reset(elementsToSelect);
-
-            this.model.storeBatchCommand();
         });
     }
 
@@ -483,9 +436,10 @@ export class DiagramView extends Backbone.Model {
         this.model.storeBatchCommand();
     }
 
+    //Create element from given id. Add element to model if element does not exist in model.
     private createElementAt(elementId: string, position: { x: number; y: number; center?: boolean; }) {
         const element = this.model.createElement(elementId);
-
+        // console.log(element);
         let {x, y} = position;
         const size: { width: number; height: number; } = element.get('size');
         if (position.center) {
