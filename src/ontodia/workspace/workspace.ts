@@ -1,6 +1,7 @@
 import * as $ from 'jquery';
 import { Component, createElement, ReactElement, DOM as D } from 'react';
 import * as Backbone from 'backbone';
+import * as joint from 'jointjs';
 
 import { DiagramModel } from '../diagram/model';
 import { Link, FatLinkType } from '../diagram/elements';
@@ -198,14 +199,46 @@ export class Workspace extends Component<Props, State> {
             paperSize: this.markup.paperArea.getPaperSize(),
             contentBBox: this.markup.paperArea.getContentFittingBox(),
         });
+        let model = this.model;
 
-        for (const node of nodes) {
-            this.model.getElement(node.id).position(node.x, node.y);
-        }
+        // for(const node of nodes) {
+        //     this.model.getElement(node.id).position(node.x, node.y);
+        // }
+        let counter = 0; 
+        let sleepInterval = setInterval(function(){
+            if(counter == nodes.length) {
+                clearInterval(sleepInterval);
+            }else {
+                const node = nodes[counter];
+                model.getElement(node.id).transition('position', {x: node.x, y: node.y}, {
+                    delay: 0, 
+                    duration: 50, 
+                    valueFunction: joint.util.interpolate.object
+                });
+                ++counter;  
+            }
+        }, 50);
 
         for (const {link} of links) {
             link.set('vertices', []);
         }
+    }
+
+    private translateWithDelay(model, nodes, counter) {
+        const node = nodes[counter];
+        model.getElement(node.id).transition('position', {x: node.x, y: node.y}, {
+            delay: 0, 
+            duration: 1000, 
+            valueFunction: joint.util.interpolate.object
+        });
+    }
+
+    private delay(){
+        console.log(counter);
+        ++counter;
+        if(counter < 10) {
+            setTimeout(delay, 1000);
+        }     
     }
 
     private onExportSvg(link: HTMLAnchorElement) {
