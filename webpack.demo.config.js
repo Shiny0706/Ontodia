@@ -46,7 +46,7 @@ module.exports = {
         }),
         new HtmlWebpackPlugin({
             filename: 'sparql.html',
-            title: 'Ontodia SparQL Demo',
+            title: 'Ontodia SparQL',
             chunks: ['commons', 'sparql'],
             template: path.join(__dirname, 'src', 'examples', 'template.ejs'),
         }),
