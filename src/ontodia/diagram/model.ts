@@ -72,6 +72,10 @@ export class DiagramModel extends Backbone.Model {
     get elements() { return this.graph.getElements() as Element[]; }
     get links() { return this.graph.getLinks() as Link[]; }
 
+    public getElements(){
+        return this.graph.getElements() as Element[]
+    };
+
     getElement(elementId: string): Element | undefined {
         const cell = this.cells.get(elementId);
         return cell instanceof Element ? cell : undefined;
@@ -320,7 +324,6 @@ export class DiagramModel extends Backbone.Model {
 
         const element = new Element({id: model.id});
         element.template = model;
-
         this.graph.addCell(element);
         return element;
     }
@@ -441,6 +444,7 @@ export class DiagramModel extends Backbone.Model {
                 element.trigger('state:loaded');
             }
         }
+        this.trigger('state:elementsInfoLoaded');
     }
 
     private onLinkInfoLoaded(links: LinkModel[]) {
@@ -448,6 +452,7 @@ export class DiagramModel extends Backbone.Model {
         for (const linkModel of links) {
             this.createLink(linkModel);
         }
+        this.trigger('state:linksInfoLoaded');
         this.storeBatchCommand();
     }
 

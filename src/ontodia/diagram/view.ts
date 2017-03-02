@@ -1,7 +1,7 @@
 import { hcl } from 'd3-color';
 import * as Backbone from 'backbone';
 import * as joint from 'jointjs';
-import { merge, cloneDeep, each, filter } from 'lodash';
+import { merge, cloneDeep, each, filter, includes } from 'lodash';
 import { createElement } from 'react';
 import { render as reactDOMRender, unmountComponentAtNode } from 'react-dom';
 import {createRequest } from '../widgets/instancesSearch'
@@ -33,10 +33,16 @@ import { LinkView } from './linkView';
 import { SeparatedElementView } from './separatedElementView';
 import { ElementLayer } from './elementLayer';
 
-const CONCEPT_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept";
-const INFORMATION_RESOURCE_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/InformationResource";
-const CONCEPT_REPRESENTATION_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/ConceptRepresentation";
-
+const CONCEPT_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept";
+const INFORMATION_RESOURCE_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/InformationResource";
+const CONCEPT_REPRESENTATION_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/ConceptRepresentation";
+const NAME_INDIVIDUAL_URI = "http://www.w3.org/2002/07/owl#NamedIndividual";
+const CLASS_URI = "http://www.w3.org/2002/07/owl#Class";
+const DATATYPE_PROPERTY_URI = "http://www.w3.org/2002/07/owl#DatatypeProperty";
+const FUNCTIONAL_PROPERTY_URI = "http://www.w3.org/2002/07/owl#FunctionalProperty";
+const OBJECT_PROPERTY_URI = "http://www.w3.org/2002/07/owl#ObjectProperty";
+const ONTOLOGY_URI = "http://www.w3.org/2002/07/owl#Ontology";
+const THING_URI = "http://www.w3.org/2002/07/owl#Thing";
 
 export interface DiagramViewOptions {
     typeStyleResolvers?: TypeStyleResolver[];
@@ -62,7 +68,6 @@ export class DiagramView extends Backbone.Model {
     private linkStyleResolvers: LinkStyleResolver[];
     private templatesResolvers: TemplateResolver[];
     private model: DiagramModel;
-    private classIds : string[] = [];
 
     paper: joint.dia.Paper;
     halo: Halo;
@@ -71,6 +76,9 @@ export class DiagramView extends Backbone.Model {
     readonly selection = new Backbone.Collection<Element>();
 
     private colorSeed = 0x0BADBEEF;
+
+    private rootElement: Element; // Root element
+    private selectedElement: Element;
 
     private toSVGOptions: ToSVGOptions = {
         elementsToRemoveSelector: '.link-tools, .marker-vertices',
@@ -120,13 +128,19 @@ export class DiagramView extends Backbone.Model {
 
         this.listenTo(model, 'state:dataLoaded', () => {
             this.model.resetHistory();
-            this.virtualizeOntology('withRepresentation');
         });
     }
 
-    virtualizeOntology(drawingMode: string) {
+    public clearPaper(){
         this.model.graph.clear();
-        this.trigger('state:graphCleared');
+        this.selection.reset([]);
+        this.rootElement = undefined;
+        this.selectedElement = undefined;
+        this.adjustPaper();
+    }
+
+    public virtualizeOntology(drawingMode: string) {
+        this.model.graph.clear();
         if(drawingMode === "withRepresentation") {
             this.virtualizeWithRepresentationMode();
         }else if(drawingMode === 'withAssociates') {
@@ -136,9 +150,9 @@ export class DiagramView extends Backbone.Model {
 
     private virtualizeWithRepresentationMode (){
         let filteredClasses = filter(this.model.classTree, clazz => {
-            return clazz.id === CONCEPT_URL
-                    || clazz.id === INFORMATION_RESOURCE_URL
-                    || clazz.id === CONCEPT_REPRESENTATION_URL;
+            return clazz.id === CONCEPT_URI
+                    || clazz.id === INFORMATION_RESOURCE_URI
+                    || clazz.id === CONCEPT_REPRESENTATION_URI;
         });
 
         const requests: Promise<Dictionary<ElementModel>>[] = [];
@@ -178,15 +192,14 @@ export class DiagramView extends Backbone.Model {
             this.selection.reset(elementsToSelect);
 
             this.model.storeBatchCommand();
-            this.trigger('state:renderDone');
         });
     }
 
     private virtualizeWithAssocitatesnMode() {
 
         let filteredClasses = filter(this.model.classTree, clazz => {
-            return clazz.id === CONCEPT_URL
-                || clazz.id === INFORMATION_RESOURCE_URL;
+            return clazz.id === CONCEPT_URI
+                || clazz.id === INFORMATION_RESOURCE_URI;
         });
         // alert(filteredClasses.length);
         const requests: Promise<Dictionary<ElementModel>>[] = [];
@@ -226,7 +239,6 @@ export class DiagramView extends Backbone.Model {
             this.selection.reset(elementsToSelect);
 
             this.model.storeBatchCommand();
-            this.trigger('state:renderDone'); // TODO: is it too soon to trigger this event
         });
     }
 
@@ -329,10 +341,12 @@ export class DiagramView extends Backbone.Model {
         if (this.options.disableDefaultHalo) { return; }
 
         const container = document.createElement('div');
+
         this.paper.el.appendChild(container);
         const renderDefaultHalo = (selectedElement?: Element) => {
             let cellView: joint.dia.CellView = undefined;
             if (selectedElement) {
+                this.selectedElement = selectedElement; // Save the selected element
                 cellView = this.paper.findViewByModel(selectedElement);
             }
             reactDOMRender(createElement(Halo, {
@@ -353,7 +367,8 @@ export class DiagramView extends Backbone.Model {
                     renderDefaultHalo(selectedElement);
                 },
                 onAddToFilter: () => selectedElement.addToFilter(),
-                onToggleDisplayConnectedElements: () => this.displayConnectedElements(selectedElement);
+                onToggleDisplayConnectedElements: () => this.findAndDisplayConnectedElements(selectedElement),
+                isRootElement: this.rootElement !== undefined && this.selectedElement !== undefined && this.selectedElement.id === this.rootElement.id
 
             }), container);
         };
@@ -371,6 +386,97 @@ export class DiagramView extends Backbone.Model {
             unmountComponentAtNode(container);
             this.paper.el.removeChild(container);
         });
+    }
+
+    findAndDisplayConnectedElements(element: Element){
+        this.rootElement = element;
+        this.loadConnectedObjects(element);
+    }
+
+    loadConnectedObjects(element: Element){
+        const requests : Promise<Dictionary<ElementModel>>[] = [];
+        let objects: Element[] = [];
+        // TODO: remove hard-code of limit
+        requests.push(
+            this.model.dataProvider.filter({
+                refElementId: element.id,
+                limit: 1000,
+                offset: 0,
+                language: this.getLanguage()
+            })
+        );
+        Promise.all(requests).then(results => {
+            results.forEach(elements => {
+                Object.keys(elements).forEach(key => {
+                    let types = elements[key].types;
+                    let isPrimivite = this.isPrimitiveType(types);
+                    if(!isPrimivite){
+                        objects.push( elements[key]);
+                    }
+                });
+            });
+            this.addConnectedObjects(element, objects);
+        });
+    }
+
+    private isPrimitiveType(types: Array<string>) {
+        let result = true;
+        for(let i = 0; result && i < types.length; ++i) {
+            result &= (types[i] === NAME_INDIVIDUAL_URI
+                || types[i] === DATATYPE_PROPERTY_URI
+                || types[i] === FUNCTIONAL_PROPERTY_URI
+                || types[i] === OBJECT_PROPERTY_URI
+                || types[i] === ONTOLOGY_URI
+                || types[i] === THING_URI
+                || types[i] === CLASS_URI);
+
+        }
+        return result;
+    }
+
+    addConnectedObjects(selectedElement: Element, objects: Element[]) {
+        let elementsToRemove = [];
+        let elements = this.model.getElements();
+        if(elements.length > 1) {
+            for(let i = 0; i < elements.length; ++i){
+                if(elements[i].id !== selectedElement.id){
+                    elementsToRemove.push(elements[i]);
+                }
+            }
+            this.selection.reset(elementsToRemove);
+            this.removeSelectedElements();
+        }
+
+        const positionBoxSide = Math.round(Math.sqrt(objects.length)) + 1;
+        const GRID_STEP = 100;
+        let pos = selectedElement.position();
+        const startX = pos.x - positionBoxSide * GRID_STEP / 2;
+        const startY = pos.y - positionBoxSide * GRID_STEP / 2;
+        let xi = 0;
+        let yi = 0;
+
+        const addedElements: Element[] = [];
+        objects.forEach(el => {
+            let element = this.model.getElement(el.id);
+            if (!element) { element = this.model.createElement(el); }
+            addedElements.push(element);
+            element.attr('./display', 'none');
+            if (xi > positionBoxSide) {
+                xi = 0;
+                yi++;
+            }
+            if (xi === Math.round(positionBoxSide / 2)) {
+                xi++;
+            }
+            if (yi === Math.round(positionBoxSide / 2)) {
+                yi++;
+            }
+            element.position(startX + (xi++) * GRID_STEP, startY + (yi) * GRID_STEP);
+        });
+
+        this.model.requestElementData(addedElements);
+        this.model.requestLinksOfType();
+        this.adjustPaper();
     }
 
     showNavigationMenu(element: Element) {
@@ -439,7 +545,6 @@ export class DiagramView extends Backbone.Model {
     //Create element from given id. Add element to model if element does not exist in model.
     private createElementAt(elementId: string, position: { x: number; y: number; center?: boolean; }) {
         const element = this.model.createElement(elementId);
-        // console.log(element);
         let {x, y} = position;
         const size: { width: number; height: number; } = element.get('size');
         if (position.center) {

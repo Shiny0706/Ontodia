@@ -82,7 +82,8 @@ export class Workspace extends Component<Props, State> {
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
                 isIntegratingMode: true,
-                onChangeDrawingMode: drawingMode => this.diagram.virtualizeOntology(drawingMode)
+                onChangeDrawingMode: drawingMode => this.diagram.virtualizeOntology(drawingMode),
+                onClearPaper: () => this.diagram.clearPaper()
             }),
         } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
     }
@@ -106,7 +107,11 @@ export class Workspace extends Component<Props, State> {
         });
 
         this.diagram.listenTo(this.diagram, 'state:renderDone', () => {
-            // this.forceLayout();
+            this.markup.paperArea.zoomToFit();
+        });
+
+        this.diagram.listenTo(this.model, 'state:linksInfoLoaded', () => {
+            this.forceLayout();
             this.markup.paperArea.zoomToFit();
         });
 
@@ -199,46 +204,12 @@ export class Workspace extends Component<Props, State> {
             paperSize: this.markup.paperArea.getPaperSize(),
             contentBBox: this.markup.paperArea.getContentFittingBox(),
         });
-        let model = this.model;
-
-        // for(const node of nodes) {
-        //     this.model.getElement(node.id).position(node.x, node.y);
-        // }
-        let counter = 0; 
-        let sleepInterval = setInterval(function(){
-            if(counter == nodes.length) {
-                clearInterval(sleepInterval);
-            }else {
-                const node = nodes[counter];
-                model.getElement(node.id).transition('position', {x: node.x, y: node.y}, {
-                    delay: 0, 
-                    duration: 50, 
-                    valueFunction: joint.util.interpolate.object
-                });
-                ++counter;  
-            }
-        }, 50);
-
+        for(const node of nodes) {
+            this.model.getElement(node.id).position(node.x, node.y);
+        }
         for (const {link} of links) {
             link.set('vertices', []);
         }
-    }
-
-    private translateWithDelay(model, nodes, counter) {
-        const node = nodes[counter];
-        model.getElement(node.id).transition('position', {x: node.x, y: node.y}, {
-            delay: 0, 
-            duration: 1000, 
-            valueFunction: joint.util.interpolate.object
-        });
-    }
-
-    private delay(){
-        console.log(counter);
-        ++counter;
-        if(counter < 10) {
-            setTimeout(delay, 1000);
-        }     
     }
 
     private onExportSvg(link: HTMLAnchorElement) {
