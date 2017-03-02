@@ -81,7 +81,8 @@ export class Workspace extends Component<Props, State> {
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
                 isIntegratingMode: true,
-                onChangeDrawingMode: drawingMode => this.diagram.visualizeOntology(drawingMode)
+                onChangeDrawingMode: drawingMode => this.diagram.visualizeOntology(drawingMode),
+                onClearPaper: () => this.diagram.clearPaper()
             }),
         } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
     }

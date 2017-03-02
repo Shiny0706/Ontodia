@@ -21,6 +21,7 @@ export interface Props {
     isDiagramSaved?: boolean;
     isIntegratingMode?: boolean;
     onChangeDrawingMode?:(drawingMode: string) => void;
+    onClearPaper: void;
 }
 
 export interface State {
@@ -143,6 +144,10 @@ export class EditorToolbar extends React.Component<Props, State> {
                         <span className='fa fa-picture-o' aria-hidden='true' /> SVG
                     </button>
                     <button type='button' className='btn btn-default'
+                            title='Export diagram to other format' onClick={this.props.onClearPaper}>
+                        <span className='fa fa-trash' aria-hidden='true' /> Clear
+                    </button>
+                    <button type='button' className='btn btn-default'
                             title='Print diagram' onClick={this.props.onPrint}>
                         <span className='fa fa-print' aria-hidden='true' />
                     </button>
@@ -158,7 +163,8 @@ export class EditorToolbar extends React.Component<Props, State> {
                     {(this.props.isIntegratingMode) ? (
                     <div className="btn-group drawModeSelector">
                         <label><span>Drawing Mode:</span></label>
-                        <select defaultValue='withRepresentation' onChange={this.onChangeDrawingMode}>
+                        <select onChange={this.onChangeDrawingMode}>
+                            <option>None</option>
                             <option value='withRepresentation'>With Representation</option>
                             <option value='withAssociates'>With Associates</option>
                         </select>
