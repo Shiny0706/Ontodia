@@ -33,9 +33,9 @@ import { LinkView } from './linkView';
 import { SeparatedElementView } from './separatedElementView';
 import { ElementLayer } from './elementLayer';
 
-const CONCEPT_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept";
-const INFORMATION_RESOURCE_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/InformationResource";
-const CONCEPT_REPRESENTATION_URL = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/ConceptRepresentation";
+const CONCEPT_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept";
+const INFORMATION_RESOURCE_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/InformationResource";
+const CONCEPT_REPRESENTATION_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/ConceptRepresentation";
 
 
 export interface DiagramViewOptions {
@@ -120,8 +120,11 @@ export class DiagramView extends Backbone.Model {
 
         this.listenTo(model, 'state:dataLoaded', () => {
             this.model.resetHistory();
-            this.visualizeOntology('withRepresentation');
         });
+    }
+    public clearPaper(){
+        this.model.graph.clear();
+        this.selection.reset([]);
     }
 
     visualizeOntology(drawingMode: string) {
@@ -136,9 +139,9 @@ export class DiagramView extends Backbone.Model {
 
     private visualizeWithRepresentationMode (){
         let filteredClasses = filter(this.model.classTree, clazz => {
-            return clazz.id === CONCEPT_URL
-                    || clazz.id === INFORMATION_RESOURCE_URL
-                    || clazz.id === CONCEPT_REPRESENTATION_URL;
+            return clazz.id === CONCEPT_URI
+                    || clazz.id === INFORMATION_RESOURCE_URI
+                    || clazz.id === CONCEPT_REPRESENTATION_URI;
         });
 
         const requests: Promise<Dictionary<ElementModel>>[] = [];
@@ -185,8 +188,8 @@ export class DiagramView extends Backbone.Model {
     private visualizeWithAssocitatesnMode() {
 
         let filteredClasses = filter(this.model.classTree, clazz => {
-            return clazz.id === CONCEPT_URL
-                || clazz.id === INFORMATION_RESOURCE_URL;
+            return clazz.id === CONCEPT_URI
+                || clazz.id === INFORMATION_RESOURCE_URI;
         });
         // alert(filteredClasses.length);
         const requests: Promise<Dictionary<ElementModel>>[] = [];
