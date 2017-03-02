@@ -3,6 +3,7 @@ var path = require('path');
 
 var CommonsChunkPlugin = require("webpack/lib/optimize/CommonsChunkPlugin");
 var HtmlWebpackPlugin = require('html-webpack-plugin');
+var CopyWebpackPlugin = require('copy-webpack-plugin');
 
 var npmDir = path.join(__dirname, 'node_modules');
 
@@ -80,6 +81,9 @@ module.exports = {
             template: path.join(__dirname, 'src', 'examples', 'template.ejs'),
         }),
         new CommonsChunkPlugin('commons', 'commons.chunk.js'),
+        new CopyWebpackPlugin([
+            {from:'assets/**/*', to: '/dist'}
+        ]),
     ],
     output: {
         path: path.join(__dirname, 'dist', 'examples'),

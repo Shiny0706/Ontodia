@@ -53,6 +53,7 @@
     "@types/lodash": "4.14.37",
     "@types/react": "0.14.55",
     "@types/react-dom": "0.14.19",
+    "copy-webpack-plugin": "^4.0.1",
     "css-loader": "0.23.1",
     "dts-bundle": "0.5.0",
     "exports-loader": "0.6.3",
