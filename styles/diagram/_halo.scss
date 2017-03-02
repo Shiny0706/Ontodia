@@ -32,6 +32,28 @@
     }
   }
 
+  &__find-connections{
+    @include halo-button;
+    background-image: url("../images/expand-link.png");
+    top: -16px;
+    left: 90%;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  &__to-previous-node{
+    @include halo-button;
+    background-image: url('../images/backward.png');
+    top:-16px;
+    left: 5%;
+
+    &:hover{
+      opacity: 1;
+    }
+  }
+
   &__delete {
     @include halo-button;
     background-image: url("../images/delete.png");

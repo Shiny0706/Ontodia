@@ -14,6 +14,7 @@ export interface Props {
     onToggleNavigationMenu?: () => void;
     onAddToFilter?: () => void;
     onToggleDisplayConnectedElements?: () => void;
+    isRootElement?: boolean;
 }
 
 const CLASS_NAME = 'ontodia-halo';
@@ -63,15 +64,20 @@ export class Halo extends React.Component<Props, void> {
         // TODO: add new div element to handle displaying connected elements
         return (
             <div className={CLASS_NAME} style={style}>
+                <div className={`${CLASS_NAME}__find-connections`}
+                     title='Find and display connected elements'
+                     onClick={this.props.onToggleDisplayConnectedElements} />
+                {(this.props.isRootElement) ? (
+                    <div className={`${CLASS_NAME}__to-previous-node`}
+                         title='Return to previous node' />
+                ) : undefined}
                 <div className={`${CLASS_NAME}__delete`}
                     title='Remove an element from the diagram'
                     onClick={this.props.onDelete} />
-
                 <div className={`${CLASS_NAME}__navigate ` +
                     `${CLASS_NAME}__navigate--${navigationMenuOpened ? 'closed' : 'open'}`}
                     title='Open a dialog to navigate to connected elements'
                     onClick={this.props.onToggleNavigationMenu} />
-
                 <div className={`${CLASS_NAME}__add-to-filter`}
                     title='Search for connected elements'
                     onClick={this.props.onAddToFilter} />
