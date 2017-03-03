@@ -14,6 +14,7 @@ export interface Props {
     onToggleNavigationMenu?: () => void;
     onAddToFilter?: () => void;
     onToggleDisplayConnectedElements?: () => void;
+    onToggleDisplayPreviousConnectedElements?:() => void;
     isRootElement?: boolean;
 }
 
@@ -69,7 +70,8 @@ export class Halo extends React.Component<Props, void> {
                      onClick={this.props.onToggleDisplayConnectedElements} />
                 {(this.props.isRootElement) ? (
                     <div className={`${CLASS_NAME}__to-previous-node`}
-                         title='Return to previous node' />
+                         title='Return to previous node'
+                        onClick={this.props.onToggleDisplayPreviousConnectedElement}/>
                 ) : undefined}
                 <div className={`${CLASS_NAME}__delete`}
                     title='Remove an element from the diagram'

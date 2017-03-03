@@ -78,6 +78,8 @@ export class DiagramView extends Backbone.Model {
     private colorSeed = 0x0BADBEEF;
 
     private rootElement: Element; // Root element
+    private previousRoots: Element[] = []; // Previous root element
+
     private selectedElement: Element;
     public connectedObjects: Element[];
 
@@ -136,6 +138,7 @@ export class DiagramView extends Backbone.Model {
         this.model.graph.clear();
         this.selection.reset([]);
         this.rootElement = undefined;
+        this.previousRoots = [];
         this.selectedElement = undefined;
         this.adjustPaper();
     }
@@ -369,6 +372,7 @@ export class DiagramView extends Backbone.Model {
                 },
                 onAddToFilter: () => selectedElement.addToFilter(),
                 onToggleDisplayConnectedElements: () => this.findAndDisplayConnectedElements(selectedElement),
+                onToggleDisplayPreviousConnectedElement: () => this.findAndDisplayPreviousConnectedElements();
                 isRootElement: this.rootElement !== undefined && this.selectedElement !== undefined && this.selectedElement.id === this.rootElement.id
 
             }), container);
@@ -393,7 +397,18 @@ export class DiagramView extends Backbone.Model {
         return this.rootElement;
     }
 
+    findAndDisplayPreviousConnectedElements(){
+        if(this.previousRoots.length > 0) {
+            let element: Element = this.previousRoots.pop();
+            this.rootElement = element;
+            this.loadConnectedObjects(element);
+        }
+    }
+
     findAndDisplayConnectedElements(element: Element){
+        if(this.rootElement != undefined) {
+            this.previousRoots.push(this.rootElement);
+        }
         this.rootElement = element;
         this.loadConnectedObjects(element);
     }
