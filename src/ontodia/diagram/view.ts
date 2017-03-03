@@ -79,6 +79,7 @@ export class DiagramView extends Backbone.Model {
 
     private rootElement: Element; // Root element
     private selectedElement: Element;
+    public connectedObjects: Element[];
 
     private toSVGOptions: ToSVGOptions = {
         elementsToRemoveSelector: '.link-tools, .marker-vertices',
@@ -388,6 +389,10 @@ export class DiagramView extends Backbone.Model {
         });
     }
 
+    public getRootElement(){
+        return this.rootElement;
+    }
+
     findAndDisplayConnectedElements(element: Element){
         this.rootElement = element;
         this.loadConnectedObjects(element);
@@ -395,7 +400,7 @@ export class DiagramView extends Backbone.Model {
 
     loadConnectedObjects(element: Element){
         const requests : Promise<Dictionary<ElementModel>>[] = [];
-        let objects: Element[] = [];
+        let objects: ElementModel[] = [];
         // TODO: remove hard-code of limit
         requests.push(
             this.model.dataProvider.filter({
@@ -434,6 +439,10 @@ export class DiagramView extends Backbone.Model {
         return result;
     }
 
+    public getConnectedObjects() {
+        return this.connectedObjects;
+    }
+
     addConnectedObjects(selectedElement: Element, objects: Element[]) {
         let elementsToRemove = [];
         let elements = this.model.getElements();
@@ -446,37 +455,8 @@ export class DiagramView extends Backbone.Model {
             this.selection.reset(elementsToRemove);
             this.removeSelectedElements();
         }
-
-        const positionBoxSide = Math.round(Math.sqrt(objects.length)) + 1;
-        const GRID_STEP = 100;
-        let pos = selectedElement.position();
-        const startX = pos.x - positionBoxSide * GRID_STEP / 2;
-        const startY = pos.y - positionBoxSide * GRID_STEP / 2;
-        let xi = 0;
-        let yi = 0;
-
-        const addedElements: Element[] = [];
-        objects.forEach(el => {
-            let element = this.model.getElement(el.id);
-            if (!element) { element = this.model.createElement(el); }
-            addedElements.push(element);
-            element.attr('./display', 'none');
-            if (xi > positionBoxSide) {
-                xi = 0;
-                yi++;
-            }
-            if (xi === Math.round(positionBoxSide / 2)) {
-                xi++;
-            }
-            if (yi === Math.round(positionBoxSide / 2)) {
-                yi++;
-            }
-            element.position(startX + (xi++) * GRID_STEP, startY + (yi) * GRID_STEP);
-        });
-
-        this.model.requestElementData(addedElements);
-        this.model.requestLinksOfType();
-        this.adjustPaper();
+        this.connectedObjects = objects;
+        this.trigger('state:connectedObjectsLoaded');
     }
 
     showNavigationMenu(element: Element) {

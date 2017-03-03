@@ -318,7 +318,6 @@ export class DiagramModel extends Backbone.Model {
         const id = typeof idOrModel === 'string' ? idOrModel : idOrModel.id;
         const existing = this.getElement(id);
         if (existing) { return existing; }
-
         const model = typeof idOrModel === 'string'
             ? placeholderTemplateFromIri(idOrModel) : idOrModel;
 

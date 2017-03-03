@@ -2,6 +2,7 @@ import * as $ from 'jquery';
 import { Component, createElement, ReactElement, DOM as D } from 'react';
 import * as Backbone from 'backbone';
 import * as joint from 'jointjs';
+import { ElementModel } from '../data/model';
 
 import { DiagramModel } from '../diagram/model';
 import { Link, FatLinkType } from '../diagram/elements';
@@ -110,8 +111,12 @@ export class Workspace extends Component<Props, State> {
             this.markup.paperArea.zoomToFit();
         });
 
+        this.diagram.listenTo(this.diagram, 'state:connectedObjectsLoaded', () => {
+            this.visualizeElementsWithAnnotation();
+        });
+
         this.diagram.listenTo(this.model, 'state:linksInfoLoaded', () => {
-            this.forceLayout();
+            this.objectsAnnotation();
             this.markup.paperArea.zoomToFit();
         });
 
@@ -150,6 +155,106 @@ export class Workspace extends Component<Props, State> {
         if (this.markup && !this.props.isViewOnly) {
             $(this.markup.element).find('.filter-panel').each(setPanelHeight);
         }
+    }
+
+    private visualizeElementsWithAnnotation(){
+        let elements: ElementModel[] = this.diagram.getConnectedObjects();
+        let rootElement: Element = this.diagram.getRootElement();
+        let paperSize = this.markup.paperArea.getPaperSize();
+        let x0 = paperSize.width/2,
+            y0 = paperSize.height/2 - 20;
+        let delta = 0;
+        if(elements.length > 1) {
+            delta = 3.14*2/(elements.length-1);
+        }
+        let PADDING = 10;
+        let angle = 0;
+        let radius = x0 > y0 ? y0 : x0;
+        let root = this.model.createElement(rootElement.id);
+
+        root.position(x0, y0);
+        let addedElements : Element[] = [];
+        elements.forEach(el => {
+            let x = x0 + radius * Math.cos(angle) - 30,
+                y = y0 - radius * Math.sin(angle) + PADDING;
+            let element = this.model.createElement(el);
+            let size = element.get('size');
+            if(x + size.width >= paperSize.width){
+                x-=  size.width + PADDING;
+            }
+            if(y + size.height >= paperSize.height) {
+                y -= size.height + PADDING;
+            }
+            element.position(x , y);
+            addedElements.push(element);
+            angle += delta;
+        });
+        this.model.requestElementData(addedElements);
+        this.model.requestLinksOfType();
+        this.markup.paperArea.adjustPaper();
+    }
+
+    private objectsAnnotation(){
+        const nodes: LayoutNode[] = [];
+        const nodeById: { [id: string]: LayoutNode } = {};
+        for (const element of this.model.elements) {
+            const size = element.get('size');
+            const position = element.get('position');
+            const node: LayoutNode = {
+                id: element.id,
+                x: position.x,
+                y: position.y,
+                width: size.width,
+                height: size.height,
+            };
+            nodeById[element.id] = node;
+            nodes.push(node);
+        }
+
+        type LinkWithReference = LayoutLink & { link: Link };
+        const links: LinkWithReference[] = [];
+        for (const link of this.model.links) {
+            if (!this.model.isSourceAndTargetVisible(link)) { continue; }
+            const source = this.model.sourceOf(link);
+            const target = this.model.targetOf(link);
+            links.push({
+                link,
+                source: nodeById[source.id],
+                target: nodeById[target.id],
+            });
+        }
+
+        forceLayout({nodes, links, preferredLinkLength: 200});
+        padded(nodes, {x: 10, y: 10}, () => removeOverlaps(nodes));
+        translateToPositiveQuadrant({nodes, padding: {x: 150, y: 150}});
+
+        for(const node of nodes) {
+            this.model.getElement(node.id).transition('position', {x: node.x, y: node.y}, {
+                delay: 0,
+                duration: 500,
+                valueFunction: joint.util.interpolate.object
+            });
+        }
+
+        setTimeout(500, function(){
+            this.markup.paperArea.adjustPaper();
+            translateToCenter({
+                nodes,
+                paperSize: this.markup.paperArea.getPaperSize(),
+                contentBBox: this.markup.paperArea.getContentFittingBox(),
+
+            });
+            for(const node of nodes) {
+                this.model.getElement(node.id).transition('position', {x: node.x, y: node.y}, {
+                    delay: 0,
+                    duration: 1000,
+                    valueFunction: joint.util.interpolate.object
+                });
+            }
+            for (const {link} of links) {
+                link.set('vertices', []);
+            }
+        });
     }
 
     getModel() { return this.model; }
@@ -204,6 +309,7 @@ export class Workspace extends Component<Props, State> {
             paperSize: this.markup.paperArea.getPaperSize(),
             contentBBox: this.markup.paperArea.getContentFittingBox(),
         });
+
         for(const node of nodes) {
             this.model.getElement(node.id).position(node.x, node.y);
         }
