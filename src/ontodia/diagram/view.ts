@@ -525,6 +525,7 @@ export class DiagramView extends Backbone.Model {
         for (const elementId of elementIds) {
             const center = elementIds.length === 1;
             const element = this.createElementAt(elementId, {x: x + totalXOffset, y, center});
+            console.log(element);
             totalXOffset += element.get('size').width + 20;
             elementsToSelect.push(element);
             element.focus();
