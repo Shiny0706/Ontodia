@@ -7,16 +7,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Latest]
 ### Added
 - Support for IE11 (without exporting to SVG/PNG).
+- Workspace API for external toolbar.
 
 ### Changed
 - Replaced `foreignObject`-based element rendering with overlayed
 HTML elements.
 - Filter non-left mouse button clicks on paper.
+- Automatically set link type visible when adding elements through
+Connections menu.
+- Tutorial don't automatically show up on a first visit by default.
 
 ### Fixed
-- Expanded organization template width.
+- Inconsistent elements and links rendering between editor and exported SVG.
 - Paper always including initial canvas area when adjusting size to content.
-- Fixed `Halo` rendering in a wrong place when paper origin changes.
+- Rendering `Halo` in a wrong place when paper origin changes.
+- Non-scrollable Connections panel in Firefox and IE11.
+- Lost scroll position in Instances panel on 'Show more' button press
+(introduced in [0.3.8]).
+- Missing localized labels with different languages for classes.
 
 ### Breaking changes
 - `DiagramModel.requestElementData()` don't requests for links.
@@ -65,7 +73,7 @@ making elements unnessesary big.
 - Replaced `d3` dependency with `d3-color`.
 
 ### Fixed
-- Exported missing LayoutData types.
+- Exported missing `LayoutData` types.
 - Error when `WikidataProvider.filter()` query execution encounters literals
 or non-entity IRIs.
 - Diagram area scroll jump on element click when workspace area size changed.
