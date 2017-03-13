@@ -12,8 +12,10 @@
 @import "widgets/linksToolbox";
 @import "widgets/listElementView";
 @import "widgets/progress";
+@import "widgets/toolbar";
 
-@import "workspace/resizablePanels";
+@import "workspace/accordion";
+@import "workspace/resizableSidebar";
 @import "workspace/workspace";
 
 @import "templates/icons";
