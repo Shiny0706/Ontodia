@@ -32,6 +32,7 @@ type ChangeVisibilityOptions = { isFromHandler?: boolean };
  *     state:renderStart
  *     state:renderDone
  *     state:dataLoaded
+ *     state:linksInfoCreated
  *
  *     history:undo
  *     history:redo
@@ -448,6 +449,7 @@ export class DiagramModel extends Backbone.Model {
         for (const linkModel of links) {
             this.createLink(linkModel);
         }
+        this.trigger('state:linksInfoCreated');
         this.storeBatchCommand();
     }
 
