@@ -20,6 +20,9 @@ import {
     PropertyBinding,
 } from './sparqlModels';
 
+
+import { Config } from '../../../../stardogConfig.ts';
+
 const DEFAULT_PREFIX =
 `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
  PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -322,7 +325,7 @@ export function executeSparqlQuery<Binding>(endpoint: string, query: string) {
             url: endpoint,
             contentType: 'application/sparql-query',
             headers: {
-                "Accept": 'application/sparql-results+json', 
+                "Accept": 'application/sparql-results+json',
                 "Authorization": "Basic " + btoa('admin' + ":" + 'admin')
             },
             data: query,
