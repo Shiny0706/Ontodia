@@ -1,5 +1,6 @@
 import { createElement, ClassAttributes } from 'react';
 import * as ReactDOM from 'react-dom';
+import Config  from '../../stardogConfig';
 
 import { Workspace, WorkspaceProps, SparqlDataProvider } from '../index';
 
@@ -8,7 +9,7 @@ import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } f
 require('jointjs/css/layout.css');
 require('jointjs/css/themes/default.css');
 
-const stardogEndpointUrl = 'http://localhost:5820/pizza/query';
+let stardogEndpoint = Config.HOSTNAME + ':' + Config.PORT +'/' + Config.DB + '/query';
 
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
@@ -24,7 +25,7 @@ function onWorkspaceMounted(workspace: Workspace) {
         layoutData,
         validateLinks: true,
         dataProvider: new SparqlDataProvider({
-            endpointUrl: stardogEndpointUrl,
+            endpointUrl: stardogEndpoint,
             imageClassUris: [
                 'http://collection.britishmuseum.org/id/ontology/PX_has_main_representation',
                 'http://xmlns.com/foaf/0.1/img',
