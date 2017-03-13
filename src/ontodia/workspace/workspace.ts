@@ -105,8 +105,8 @@ export class Workspace extends Component<Props, State> {
             this.setState({criteria: {refElementId: element.id, refElementLinkId: linkType && linkType.id}});
         });
 
-        this.diagram.listenTo(this.diagram, 'state:renderDone', () => {
-            // this.forceLayout();
+        this.diagram.listenTo(this.model, 'state:linksInfoCreated', () => {
+            this.forceLayout();
             this.markup.paperArea.zoomToFit();
         });
 
