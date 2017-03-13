@@ -181,7 +181,6 @@ export class DiagramView extends Backbone.Model {
             this.selection.reset(elementsToSelect);
 
             this.model.storeBatchCommand();
-            this.trigger('state:renderDone');
         });
     }
 
@@ -229,7 +228,6 @@ export class DiagramView extends Backbone.Model {
             this.selection.reset(elementsToSelect);
 
             this.model.storeBatchCommand();
-            this.trigger('state:renderDone'); // TODO: is it too soon to trigger this event
         });
     }
 
