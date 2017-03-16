@@ -8,12 +8,19 @@ import {
 
 const THING_URI = 'http://www.w3.org/2002/07/owl#Thing';
 const LABEL_URI = 'http://www.w3.org/2000/01/rdf-schema#label';
+const NAME_INDIVIDUAL_URI = "http://www.w3.org/2002/07/owl#NamedIndividual";
+const CLASS_URI = "http://www.w3.org/2002/07/owl#Class";
+const DATATYPE_PROPERTY_URI = "http://www.w3.org/2002/07/owl#DatatypeProperty";
+const FUNCTIONAL_PROPERTY_URI = "http://www.w3.org/2002/07/owl#FunctionalProperty";
+const OBJECT_PROPERTY_URI = "http://www.w3.org/2002/07/owl#ObjectProperty";
+const ONTOLOGY_URI = "http://www.w3.org/2002/07/owl#Ontology";
 
-export function getClassTree(response: SparqlResponse<ClassBinding>): ClassModel[] {
+export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassModel[], ClassModel[]] {
     const sNodes = response.results.bindings;
     const tree: ClassModel[] = [];
     const createdTreeNodes: Dictionary<ClassModel> = {};
     const tempNodes: Dictionary<ClassModel> = {};
+    const pureClassTree: ClassModel[] = [];
 
     for (const sNode of sNodes) {
         const sNodeId: string = sNode.class.value;
@@ -57,6 +64,9 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): ClassModel
                     newNode.count += tempNodes[sNodeId].count;
                     newNode.children = tempNodes[sNodeId].children;
                 }
+                if(notOntologyPrimitiveType(newNode.id)) {
+                    pureClassTree.push(newNode);
+                }
             }
         }
     };
@@ -67,10 +77,24 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): ClassModel
             children: [],
             label: { values: [getLocalizedString(undefined, THING_URI)] },
             count: 0,
+            level: 0,
         });
     }
 
-    return tree;
+    return [tree, pureClassTree];
+}
+
+function notOntologyPrimitiveType(id: String) {
+    let result =
+    id != THING_URI
+    && id != NAME_INDIVIDUAL_URI
+    && id != CLASS_URI
+    && id != NAME_INDIVIDUAL_URI
+    && id != DATATYPE_PROPERTY_URI
+    && id != FUNCTIONAL_PROPERTY_URI
+    && id != OBJECT_PROPERTY_URI
+    && id != ONTOLOGY_URI;
+    return result;
 }
 
 export function getClassInfo(response: SparqlResponse<ClassBinding>): ClassModel[] {
