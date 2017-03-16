@@ -25,6 +25,7 @@ export interface ClassModel {
     id: string;
     label: { values: LocalizedString[] };
     count: number;
+    level: number;
     children: ClassModel[];
 }
 

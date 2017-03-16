@@ -46,7 +46,10 @@ export class DiagramModel extends Backbone.Model {
     dataProvider: DataProvider;
 
     classTree: ClassTreeElement[];
+    pureClassTree: ClassTreeElement[];
+
     private classesById: Dictionary<FatClassModel> = {};
+    private pureClassesById: Dictionary<FatClassModel> = {};
     private propertyLabelById: Dictionary<RichProperty> = {};
 
     private nextLinkTypeIndex = 0;
@@ -144,7 +147,7 @@ export class DiagramModel extends Backbone.Model {
         return Promise.all<any>([
             this.dataProvider.classTree(),
             this.dataProvider.linkTypes(),
-        ]).then(([classTree, linkTypes]: [ClassModel[], LinkType[]]) => {
+        ]).then(([[classTree, pureClassTree], linkTypes]: [[ClassModel[], ClassModel[]], LinkType[]]) => {
             this.setClassTree(classTree);
             this.initLinkTypes(linkTypes);
             this.trigger('state:endLoad', 0);
@@ -179,8 +182,9 @@ export class DiagramModel extends Backbone.Model {
             //run query against database to generate class tree and link types
             this.dataProvider.classTree(),
             this.dataProvider.linkTypes(),
-        ]).then(([classTree, linkTypes]) => {
+        ]).then(([[classTree, pureClassTree], linkTypes]) => {
             this.setClassTree(classTree);
+            this.setPureClassTree(pureClassTree);
             this.initLinkTypes(linkTypes);
             this.trigger('state:endLoad', size(params.preloadedElements));
             this.initLinkSettings(params.linkSettings);
@@ -209,6 +213,23 @@ export class DiagramModel extends Backbone.Model {
             showLabel: type.get('showLabel'),
         }));
         return {layoutData, linkSettings};
+    }
+
+    setPureClassTree(rootPureClassesTree: ClassModel[]) {
+        this.pureClassTree = rootPureClassesTree;
+        const addPureClass = (cl: ClassTreeElement, level: number) => {
+            let classModel = new FatClassModel(cl);
+            classModel.set('level', level);
+            this.pureClassesById[cl.id] = classModel;
+            const childLevel = level + 1;
+            each(cl.children, (el) => {
+                addPureClass(el, childLevel);
+            });
+        };
+
+        each(rootPureClassesTree, (el) => {
+            addPureClass(el, 0);
+        });
     }
 
     private setClassTree(rootClasses: ClassModel[]) {
