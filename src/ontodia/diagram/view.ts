@@ -118,7 +118,6 @@ export class DiagramView extends Backbone.Model {
 
         this.listenTo(this.model, 'state:dataLoaded', () => {
             this.model.resetHistory();
-            this.visualizePureClassTree();
         });
     }
 
