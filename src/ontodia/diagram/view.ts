@@ -62,10 +62,8 @@ export class DiagramView extends Backbone.Model {
     private linkStyleResolvers: LinkStyleResolver[];
     private templatesResolvers: TemplateResolver[];
     private model: DiagramModel;
-    private classIds : string[] = [];
 
     paper: joint.dia.Paper;
-    halo: Halo;
     connectionsMenu: ConnectionsMenu;
 
     readonly selection = new Backbone.Collection<Element>();
@@ -118,26 +116,56 @@ export class DiagramView extends Backbone.Model {
             this.model.trigger('state:renderDone');
         });
 
-        this.listenTo(model, 'state:dataLoaded', () => {
+        this.listenTo(this.model, 'state:dataLoaded', () => {
             this.model.resetHistory();
+            this.visualizePureClassTree();
         });
     }
-    public clearPaper(){
+
+    public clearPaper() {
         this.model.graph.clear();
         this.selection.reset([]);
     }
 
-    visualizeOntology(drawingMode: string) {
+    visualizePureClassTree() {
+        this.model.initBatchCommand();
+        let elementsToSelect: Element[] = [];
+
+        let totalXOffset = 0;
+        let x = 300, y = 300;
+        let counter = 1;
+        each(this.model.getPureClassesById(), element => {
+            const element = this.createElementAt(element.id, {x: x, y: y, center:false});
+            x += element.get('size').width;
+            // Fixed max width of rows to 800px
+            if(x >800) {
+                totalXOffset = 0;
+                x = 300;
+                y += element.get('size').height + 50;
+            }
+            elementsToSelect.push(element);
+            counter++;
+        });
+        this.model.requestElementData(elementsToSelect);
+        this.model.requestLinksOfType();
+        this.selection.reset(elementsToSelect);
+
+        this.trigger('state:ontologyDisplayed');
+
+        this.model.storeBatchCommand();
+    }
+
+    visualizeCognitiveInformationSpace(drawingMode: string) {
         this.model.graph.clear();
         this.trigger('state:graphCleared');
         if(drawingMode === "withRepresentation") {
-            this.visualizeWithRepresentationMode();
+            this.visualizeCISWithRepresentationMode();
         }else if(drawingMode === 'withAssociates') {
-            this.visualizeWithAssocitatesnMode();
+            this.visualizeCISWithAssociationMode();
         }
     }
 
-    private visualizeWithRepresentationMode (){
+    visualizeCISWithRepresentationMode (){
         let filteredClasses = filter(this.model.classTree, clazz => {
             return clazz.id === CONCEPT_URI
                     || clazz.id === INFORMATION_RESOURCE_URI
@@ -166,7 +194,7 @@ export class DiagramView extends Backbone.Model {
                 each(subElements, el => {
                     const element = this.createElementAt(el.id, {x: x, y: y, center:false});
                     x += element.get('size').width;
-                    // Fixed number of element in a row: 5 elements
+                    // Fixed max width of rows: 800
                     if(x >800) {
                         totalXOffset = 0;
                         x = 300;
@@ -184,13 +212,12 @@ export class DiagramView extends Backbone.Model {
         });
     }
 
-    private visualizeWithAssocitatesnMode() {
+    visualizeCISWithAssociationMode() {
 
         let filteredClasses = filter(this.model.classTree, clazz => {
             return clazz.id === CONCEPT_URI
                 || clazz.id === INFORMATION_RESOURCE_URI;
         });
-        // alert(filteredClasses.length);
         const requests: Promise<Dictionary<ElementModel>>[] = [];
         for (let i = 0 ; i < filteredClasses.length; ++i) {
             // TODO: Correct value of limit
@@ -438,9 +465,8 @@ export class DiagramView extends Backbone.Model {
     }
 
     //Create element from given id. Add element to model if element does not exist in model.
-    private createElementAt(elementId: string, position: { x: number; y: number; center?: boolean; }) {
+    public createElementAt(elementId: string, position: { x: number; y: number; center?: boolean; }) {
         const element = this.model.createElement(elementId);
-        // console.log(element);
         let {x, y} = position;
         const size: { width: number; height: number; } = element.get('size');
         if (position.center) {
