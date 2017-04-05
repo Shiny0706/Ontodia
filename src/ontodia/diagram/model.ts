@@ -50,6 +50,8 @@ export class DiagramModel extends Backbone.Model {
 
     private classesById: Dictionary<FatClassModel> = {};
     private pureClassesById: Dictionary<FatClassModel> = {};
+    private maxLevel: number;
+    private nodesByLevel: Dictionary<FatClassModel[]> = {};
     private propertyLabelById: Dictionary<RichProperty> = {};
 
     private nextLinkTypeIndex = 0;
@@ -221,15 +223,37 @@ export class DiagramModel extends Backbone.Model {
             let classModel = new FatClassModel(cl);
             classModel.set('level', level);
             this.pureClassesById[cl.id] = classModel;
-            const childLevel = level + 1;
-            each(cl.children, (el) => {
-                addPureClass(el, childLevel);
-            });
-        };
+            if(this.nodesByLevel[level] === undefined) {
+                this.nodesByLevel[level] = [];
+            }
+            this.nodesByLevel[level].push(classModel);
 
+            if(level > this.maxLevel) {
+                this.maxLevel = level;
+            }
+            if(cl.children.length > 0) {
+                let childrenLevel =  level + 1;
+                each(cl.children, (el) => {
+                    addPureClass(el, childrenLevel);
+                });
+            }
+        };
+        this.maxLevel = 1;
         each(rootPureClassesTree, (el) => {
-            addPureClass(el, 0);
+            addPureClass(el, 1);
         });
+    }
+
+    getPureClassesById() {
+        return this.pureClassesById;
+    }
+
+    getPureClassTree() : ClassTreeElement[]{
+        return this.pureClassTree;
+    }
+
+    public getNodesByLevel(): Dictionary<FatClassModel[]> {
+        return this.nodesByLevel;
     }
 
     private setClassTree(rootClasses: ClassModel[]) {
@@ -330,6 +354,10 @@ export class DiagramModel extends Backbone.Model {
             const unusedLinkType = unusedLinkTypes[typeId];
             unusedLinkType.set('visible', false);
         }
+    }
+
+    public getMaxLevel() : number {
+        return this.maxLevel;
     }
 
     createElement(idOrModel: string | ElementModel): Element {
@@ -456,6 +484,7 @@ export class DiagramModel extends Backbone.Model {
 
     // Normalize the loaded elements to match model's element standard
     private onElementInfoLoaded(elements: Dictionary<ElementModel>) {
+        console.log(elements);
         for (const id of Object.keys(elements)) {
             const element = this.getElement(id);
             if (element) {
