@@ -212,7 +212,6 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
         const propsAsList = this.getPropertyTable();
         let author = this.getProperty(propsAsList, HAS_AUTHOR_URI);
         let resourceName = this.getProperty(propsAsList, HAS_RESOURCENAME_URI);
-        let hasLocation = this.getProperty(propsAsList, HAS_LOCATION_URI);
 
         if(author !== undefined && resourceName !== undefined) {
             label = resourceName.property.values[0].text + '/' + author.property.values[0].text;
