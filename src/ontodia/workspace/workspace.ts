@@ -1,14 +1,17 @@
 import * as $ from 'jquery';
-import { Component, createElement, ReactElement, DOM as D } from 'react';
+import { Component, createElement, ReactElement} from 'react';
 import * as Backbone from 'backbone';
+import {each} from 'lodash';
 
-import { DiagramModel } from '../diagram/model';
-import { Link, FatLinkType } from '../diagram/elements';
+import {DiagramModel, ClassTreeElement} from '../diagram/model';
+import { Link, FatLinkType, FatClassModel } from '../diagram/elements';
 import { DiagramView, DiagramViewOptions } from '../diagram/view';
 import {
     forceLayout, removeOverlaps, padded, translateToPositiveQuadrant,
     LayoutNode, LayoutLink, translateToCenter,
 } from '../viewUtils/layout';
+import {radialTreeLayout, RadialLayoutNode} from '../viewUtils/radialTreeLayout';
+
 import { ClassTree } from '../widgets/classTree';
 import { LinkTypesToolboxShell, LinkTypesToolboxModel } from '../widgets/linksToolbox';
 import { dataURLToBlob } from '../viewUtils/toSvg';
@@ -18,6 +21,7 @@ import { SearchCriteria } from '../widgets/instancesSearch';
 import { showTutorial, showTutorialIfNotSeen } from '../tutorial/tutorial';
 
 import { WorkspaceMarkup, Props as MarkupProps } from './workspaceMarkup';
+import {getLocalizedString } from '../data/sparql/responseHandler';
 
 export interface Props {
     onSaveDiagram?: (workspace: Workspace) => void;
@@ -81,7 +85,7 @@ export class Workspace extends Component<Props, State> {
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
                 isIntegratingMode: true,
-                onChangeDrawingMode: drawingMode => this.diagram.visualizeOntology(drawingMode),
+                onChangeDrawingMode: drawingMode => this.diagram.visualizeCognitiveInformationSpace(drawingMode),
                 onClearPaper: () => this.diagram.clearPaper()
             }),
         } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
@@ -106,7 +110,8 @@ export class Workspace extends Component<Props, State> {
         });
 
         this.diagram.listenTo(this.model, 'state:linksInfoCreated', () => {
-            this.forceLayout();
+            // this.forceLayout();
+            this.radialLayout();
             this.markup.paperArea.zoomToFit();
         });
 
@@ -193,6 +198,67 @@ export class Workspace extends Component<Props, State> {
         for (const {link} of links) {
             link.set('vertices', []);
         }
+    }
+
+    radialLayout = () => {
+        let deltaRadius = 250;
+        let paperSize = this.markup.paperArea.getPaperSize();
+        let rootX = paperSize.width/2;
+        let rootY = paperSize.height/2;
+        let model = this.model;
+        let pureClassTree :ClassTreeElement[] = this.model.getPureClassTree();
+        let root: ClassTreeElement;
+        if(pureClassTree.length > 1) {
+            const CLASS_URI = "http://www.w3.org/2002/07/owl#Class";
+            root = {
+                id: CLASS_URI,
+                label: {values: [getLocalizedString(undefined, CLASS_URI)]},
+                count: pureClassTree.length,
+                children: pureClassTree,
+            };
+        }else {
+            root = pureClassTree[0];
+        }
+
+        let nodeList: RadialLayoutNode[] = [];
+        let createRadialTree = function(treeElement: ClassTreeElement): RadialLayoutNode {
+            let element = model.getElement(treeElement.id);
+            let width, height, x, y;
+            if(element === undefined) {
+                width = 100;
+                height = 50;
+            }else {
+                let size = element.get('size');
+                width = size.width;
+                height = size.height;
+            }
+            let node: RadialLayoutNode = {
+                id: treeElement.id,
+                height: height,
+                width: width,
+                children: []
+            };
+            each(treeElement.children , child => {
+                let childNode = createRadialTree(child);
+                node.children.push(childNode);
+            });
+            nodeList.push(node);
+            return node;
+        };
+
+        let layoutRoot: RadialLayoutNode = createRadialTree(root);
+
+        radialTreeLayout({root: layoutRoot, deltaRadius: deltaRadius, rootX: rootX, rootY: rootY});
+        each(nodeList, node => {
+            let nodeModel = this.model.getElement(node.id);
+            if(nodeModel) {
+                nodeModel.position(node.x, node.y);
+            }
+        });
+
+        layoutRoot.x = paperSize.width/2;
+        layoutRoot.y = paperSize.height/2;
+        this.diagram.createElementAt(layoutRoot.id, {x: layoutRoot.x, y: layoutRoot.y});
     }
 
     exportSvg = (link: HTMLAnchorElement) => {
