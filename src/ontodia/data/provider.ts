@@ -1,5 +1,5 @@
 import {
-    Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel,
+    Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel, PropertyCount,
 } from './model';
 
 export interface DataProvider {
@@ -27,6 +27,10 @@ export interface DataProvider {
     linkTypesOf(params: { elementId: string; }): Promise<LinkCount[]>;
 
     filter(params: FilterParams): Promise<Dictionary<ElementModel>>;
+
+    propertyCountOfClasses(): Promise<LinkCount[]>;
+
+    propertyCount(): Promise<PropertyCount[]>;
 }
 
 export default DataProvider;

@@ -110,8 +110,7 @@ export class Workspace extends Component<Props, State> {
         });
 
         this.diagram.listenTo(this.model, 'state:linksInfoCreated', () => {
-            this.forceLayout();
-            this.markup.paperArea.zoomToFit();
+            //this.markup.paperArea.zoomToFit();
         });
 
         // Create links toolbox
