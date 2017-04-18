@@ -165,8 +165,9 @@ export class EditorToolbar extends React.Component<Props, State> {
                         <label><span>Drawing Mode:</span></label>
                         <select onChange={this.onChangeDrawingMode}>
                             <option>None</option>
-                            <option value='withRepresentation'>With Representation</option>
+                            <option value='visualizeKeyConcepts'>Visualize Key Concepts</option>
                             <option value='withAssociates'>With Associates</option>
+                            <option value='withRepresentation'>With Representation</option>
                         </select>
                     </div>
                     ) : undefined
