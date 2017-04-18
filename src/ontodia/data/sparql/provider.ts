@@ -1,7 +1,7 @@
 import * as $ from 'jquery';
 
 import { DataProvider, FilterParams } from '../provider';
-import { Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel } from '../model';
+import { Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel,PropertyCount } from '../model';
 import {
     getClassTree,
     getClassInfo,
@@ -13,6 +13,8 @@ import {
     getEnrichedElementsInfo,
     getLinkTypesInfo,
     getPropertyInfo,
+    getLinkCountOfClasses,
+    getPropertyCountOfClasses
 } from './responseHandler';
 import {
     SparqlResponse, ClassBinding, ElementBinding, LinkBinding,
@@ -223,6 +225,32 @@ export class SparqlDataProvider implements DataProvider {
 
         return executeSparqlQuery<LinkTypeBinding>(this.options.endpointUrl, query).then(getLinksTypesOf);
     };
+
+    // This only count number of object properties, not including data properties
+    linkCountOfClasses(): Promise<LinkCount[]> {
+        const query = DEFAULT_PREFIX + `
+            select ?class (count(?link) as ?propertiesCount)
+            where {
+                ?class ?link ?anotherClass.
+                ?class a owl:Class.
+                ?anotherClass a owl:Class
+            }
+            group by ?class
+        `;
+        return  executeSparqlQuery<LinkTypeBinding>(this.options.endpointUrl, query).then(getLinkCountOfClasses);
+    }
+
+    propertyCountOfClasses(): Promise<PropertyCount[]> {
+        const query = DEFAULT_PREFIX + `
+            select ?class (count(?property) as ?propertyCount)
+            where {
+              ?class a owl:Class.
+              ?property rdfs:domain ?class
+            } group by ?class       
+        `;
+        return executeSparqlQuery<>(
+            this.options.endpointUrl, query).then(getPropertyCountOfClasses);
+    }
 
     filter(params: FilterParams): Promise<Dictionary<ElementModel>> {
         if (params.limit === 0) { params.limit = 100; }

@@ -3,7 +3,7 @@ import {
     ElementImageBinding, LinkTypeBinding, LinkTypeInfoBinding, PropertyBinding,
 } from './sparqlModels';
 import {
-    Dictionary, LocalizedString, LinkType, ClassModel, ElementModel, LinkModel, Property, PropertyModel,
+    Dictionary, LocalizedString, LinkType, ClassModel, ElementModel, LinkModel, Property, PropertyModel, LinkCount, PropertyCount
 } from '../model';
 
 const THING_URI = 'http://www.w3.org/2002/07/owl#Thing';
@@ -13,6 +13,8 @@ const CLASS_URI = "http://www.w3.org/2002/07/owl#Class";
 const DATATYPE_PROPERTY_URI = "http://www.w3.org/2002/07/owl#DatatypeProperty";
 const FUNCTIONAL_PROPERTY_URI = "http://www.w3.org/2002/07/owl#FunctionalProperty";
 const OBJECT_PROPERTY_URI = "http://www.w3.org/2002/07/owl#ObjectProperty";
+const TRANSITIVE_PROPERTY_URI = "http://www.w3.org/2002/07/owl#TransitiveProperty";
+const SYMMETRIC_PROPERTY_URI = "http://www.w3.org/2002/07/owl#SymmetricProperty";
 const ONTOLOGY_URI = "http://www.w3.org/2002/07/owl#Ontology";
 
 export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassModel[], ClassModel[]] {
@@ -36,9 +38,11 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassMode
                 createdTreeNodes[sNodeId].count = getInstCount(sNode.instcount);
             }
         } else {
-            const newNode = getClassModel(sNode);
+            let newNode = getClassModel(sNode);
             createdTreeNodes[sNodeId] = newNode;
             if (sNode.parent) {
+                newNode.parent = sNode.parent.value;
+
                 const sParentNodeId: string = sNode.parent.value;
                 let parentNode: ClassModel;
 
@@ -71,17 +75,29 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassMode
         }
     };
 
-    if (!createdTreeNodes[THING_URI]) {
-        tree.push({
+    let thingNode = createdTreeNodes[THING_URI];
+    if (!thingNode) {
+        let childrenOfThing = [];
+
+        pureClassTree.forEach(function(element) {
+            childrenOfThing.push(element);
+        });
+
+        thingNode = {
             id: THING_URI,
-            children: [],
+            children: childrenOfThing,
             label: { values: [getLocalizedString(undefined, THING_URI)] },
             count: 0,
             level: 0,
+        };
+        tree.push(thingNode);
+    } else {
+        pureClassTree.forEach(function(element) {
+            thingNode.children.push(element);
         });
     }
 
-    return [tree, pureClassTree];
+    return [tree, [thingNode]];
 }
 
 function notOntologyPrimitiveType(id: String) {
@@ -93,6 +109,8 @@ function notOntologyPrimitiveType(id: String) {
     && id != DATATYPE_PROPERTY_URI
     && id != FUNCTIONAL_PROPERTY_URI
     && id != OBJECT_PROPERTY_URI
+    && id != TRANSITIVE_PROPERTY_URI
+    && id != SYMMETRIC_PROPERTY_URI
     && id != ONTOLOGY_URI;
     return result;
 }
@@ -170,7 +188,6 @@ export function getLinkTypes(response: SparqlResponse<LinkTypeBinding>): LinkTyp
         }
 
     };
-
     return linkTypes;
 }
 
@@ -230,6 +247,30 @@ export function getLinksInfo(response: SparqlResponse<LinkBinding>): LinkModel[]
 export function getLinksTypesOf(response: SparqlResponse<LinkTypeBinding>): LinkType[] {
     const sparqlLinkTypes = response.results.bindings;
     return sparqlLinkTypes.map((sLink: LinkTypeBinding) => getLinkType(sLink));
+}
+
+export function getLinkCountOfClasses(response): LinkCount[]{
+    let linkCount: LinkCount[] = [];
+    const sparqlLinkTypes = response.results.bindings;
+    sparqlLinkTypes.forEach(sLink => {
+        let link = {id: sLink.class.value, count: Number(sLink.propertiesCount.value)};
+        linkCount.push(link);
+    });
+
+    return linkCount;
+}
+
+export function getPropertyCountOfClasses(response): PropertyCount[] {
+    let propertyCounts: PropertyCount[] = [];
+
+    let sparqlPropertyCounts = response.results.bindings;
+    // Ensure that this function works in case not any class in ontology has properties
+    if(sparqlPropertyCounts[0].class) {
+        sparqlPropertyCounts.forEach(sCount => {
+            propertyCounts.push({id: sCount.class.value, count: Number(sCount.propertyCount.value)});
+        });
+    }
+    return propertyCounts;
 }
 
 // Process filtered data returned from SparQL query

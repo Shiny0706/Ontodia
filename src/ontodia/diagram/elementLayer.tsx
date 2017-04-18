@@ -16,8 +16,7 @@ import { uri2name } from './model';
 import { DiagramView } from './view';
 
 const HAS_AUTHOR_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/hasAuthor";
-const HAS_RESOURCENAME_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/hasResourceName";
-const HAS_LOCATION_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/hasLocation";
+const HAS_RESOURCE_NAME_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/hasResourceName";
 
 export interface Props {
     paper: joint.dia.Paper;
@@ -211,7 +210,7 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
         const {color, icon} = this.styleFor(model);
         const propsAsList = this.getPropertyTable();
         let author = this.getProperty(propsAsList, HAS_AUTHOR_URI);
-        let resourceName = this.getProperty(propsAsList, HAS_RESOURCENAME_URI);
+        let resourceName = this.getProperty(propsAsList, HAS_RESOURCE_NAME_URI);
 
         if(author !== undefined && resourceName !== undefined) {
             label = resourceName.property.values[0].text + '/' + author.property.values[0].text;

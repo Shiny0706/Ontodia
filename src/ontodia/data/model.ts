@@ -27,6 +27,12 @@ export interface ClassModel {
     count: number;
     level: number;
     children: ClassModel[];
+    parent: string;
+}
+
+export interface PropertyCount {
+    id: string,
+    count: number;
 }
 
 export interface LinkCount {

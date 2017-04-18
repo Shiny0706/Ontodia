@@ -161,7 +161,37 @@ export class DiagramView extends Backbone.Model {
             this.visualizeCISWithRepresentationMode();
         }else if(drawingMode === 'withAssociates') {
             this.visualizeCISWithAssociationMode();
+        } else if(drawingMode === 'visualizeKeyConcepts') {
+            this.visualizeKeyConcepts();
         }
+    }
+
+    visualizeKeyConcepts() {
+        let keyConcepts: FatClassModel[] = this.model.getKeyConcepts();
+
+        this.model.initBatchCommand();
+        let elementsToSelect: Element[] = [];
+
+        let totalXOffset = 0;
+        let x = 300, y = 300;
+        let counter = 1;
+        each(keyConcepts, el => {
+            const element = this.createElementAt(el.id, {x: x, y: y, center:false});
+            x += element.get('size').width;
+            if(x >800) {
+                totalXOffset = 0;
+                x = 300;
+                y += element.get('size').height + 50;
+            }
+            elementsToSelect.push(element);
+            counter++;
+        });
+
+        this.model.requestElementData(elementsToSelect);
+        this.model.createVirtualLinksBetweenKeyConcepts();
+        // this.model.requestLinksOfType();
+        this.selection.reset(elementsToSelect);
+        this.model.storeBatchCommand();
     }
 
     visualizeCISWithRepresentationMode (){
