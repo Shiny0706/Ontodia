@@ -25,7 +25,6 @@ export interface ClassModel {
     id: string;
     label: { values: LocalizedString[] };
     count: number;
-    level: number;
     children: ClassModel[];
     parent: string;
 }
@@ -47,4 +46,26 @@ export interface LinkType extends LinkCount {
 export interface PropertyModel {
     id: string;
     label: { values: LocalizedString[] };
+}
+
+export interface ConceptModel extends ClassModel {
+    level?:number;
+    aGlobalDensity?: number;
+    globalDensity?: number;
+    localDensity?: number;
+    density?: number;
+    contribution?: number;
+    nameSimplicity?: number;
+    basicLevel?: number;
+    ncValue?: number;
+    propertyCount?: number;
+    score?: number;
+    overallScore?: number;
+    covered: ConceptModel[];
+    allSuperConcepts: ConceptModel[];
+    allSubConcepts: ConceptModel[];
+    directSubConcepts: ConceptModel[];
+    indirectSubConcepts: ConceptModel[];
+    subKeyConcepts: ConceptModel[];
+    presentOnDiagram?: boolean;
 }

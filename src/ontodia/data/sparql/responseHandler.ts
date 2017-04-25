@@ -18,7 +18,7 @@ const TRANSITIVE_PROPERTY_URI = "http://www.w3.org/2002/07/owl#TransitivePropert
 const SYMMETRIC_PROPERTY_URI = "http://www.w3.org/2002/07/owl#SymmetricProperty";
 const ONTOLOGY_URI = "http://www.w3.org/2002/07/owl#Ontology";
 
-export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassModel[], ClassModel[]] {
+export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassModel[], ClassModel] {
     const sNodes = response.results.bindings;
     const tree: ClassModel[] = [];
     const createdTreeNodes: Dictionary<ClassModel> = {};
@@ -87,27 +87,27 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassMode
 
     let thingNode = createdTreeNodes[THING_URI];
     if (!thingNode) {
+        thingNode = {
+            id: THING_URI,
+            children: [],
+            label: { values: [getLocalizedString(undefined, THING_URI)] },
+            count: 0,
+        };
+        tree.push(thingNode);
+    }
+
+    if(pureClassTree.length > 1) {
         let childrenOfThing = [];
 
         pureClassTree.forEach(function(element) {
+            element.parent = THING_URI;
             childrenOfThing.push(element);
         });
-
-        thingNode = {
-            id: THING_URI,
-            children: childrenOfThing,
-            label: { values: [getLocalizedString(undefined, THING_URI)] },
-            count: 0,
-            level: 0,
-        };
-        tree.push(thingNode);
-    } else {
-        pureClassTree.forEach(function(element) {
-            thingNode.children.push(element);
-        });
+        thingNode.children = childrenOfThing;
+        return [tree, thingNode];
     }
 
-    return [tree, [thingNode]];
+    return [tree, pureClassTree[0]];
 }
 
 function notOntologyPrimitiveType(id: String) {

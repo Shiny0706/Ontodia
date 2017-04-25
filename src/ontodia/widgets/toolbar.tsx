@@ -21,6 +21,7 @@ export interface Props {
     isDiagramSaved?: boolean;
     isIntegratingMode?: boolean;
     onChangeDrawingMode?:(drawingMode: string) => void;
+    onVisualizeWithKCE?: (conceptCount: number) => void;
     onClearPaper: void;
 }
 
@@ -35,7 +36,7 @@ export class EditorToolbar extends React.Component<Props, State> {
 
     constructor(props: Props) {
         super(props);
-        this.state = {showModal: false};
+        this.state = {showModal: false, conceptCount: 16};
     }
 
     private onChangeLanguage = (event: React.SyntheticEvent<HTMLSelectElement>) => {
@@ -55,6 +56,15 @@ export class EditorToolbar extends React.Component<Props, State> {
         const value = event.currentTarget.value;
         this.props.onChangeDrawingMode(value);
     }
+
+    private onVisualizeWithKCE = () => {
+        this.props.onVisualizeWithKCE(this.state.conceptCount);
+    }
+
+    private onConceptCountChange = (event: React.SyntheticEvent<HTMLInputElement>) => {
+        this.setState({conceptCount: event.currentTarget.value});
+    }
+
 
     render() {
         const intro = '<h4>Toolbox</h4>' +
@@ -153,6 +163,17 @@ export class EditorToolbar extends React.Component<Props, State> {
                     </button>
                     {(nonEmbedded && this.props.onShare) ? btnShare : undefined}
                     {nonEmbedded ? btnHelp : undefined}
+                    <button type='button' className='btn btn-default'
+                            title='Export diagram as SVG' onClick={this.onVisualizeWithKCE}>
+                        <span className='fa fa-key' aria-hidden='true' /> Visualize with KCE
+                    </button>
+                    <div className="btn-group">
+                        <label><span>Concept Count:</span></label>
+                        <input type="number" name="concept_count" id="concept_count"
+                            className={`${CLASS_NAME}__concept-count`} min="5" value={this.state.conceptCount}
+                            onChange={this.onConceptCountChange}
+                        />
+                    </div>
                     <span className={`btn-group ${CLASS_NAME}__language-selector`}>
                         {nonEmbedded ? <label><span>Ontology Language:</span></label> : undefined}
                         <select defaultValue='en' onChange={this.onChangeLanguage}>
@@ -160,18 +181,6 @@ export class EditorToolbar extends React.Component<Props, State> {
                             <option value='ru'>Russian</option>
                         </select>
                     </span>
-                    {(this.props.isIntegratingMode) ? (
-                    <div className="btn-group drawModeSelector">
-                        <label><span>Drawing Mode:</span></label>
-                        <select onChange={this.onChangeDrawingMode}>
-                            <option>None</option>
-                            <option value='visualizeKeyConcepts'>Visualize Key Concepts</option>
-                            <option value='withAssociates'>With Associates</option>
-                            <option value='withRepresentation'>With Representation</option>
-                        </select>
-                    </div>
-                    ) : undefined
-                    }
                 </div>
                 <a href='#' ref={link => { this.downloadImageLink = link; }}
                    style={{display: 'none', visibility: 'collapse'}}/>

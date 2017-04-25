@@ -32,6 +32,19 @@
     }
   }
 
+  &__load-more-concept {
+    @include halo-button;
+    top: -17px;
+    left: 50%;
+    margin-left: -8px;
+    background-image: url("../images/collapse-properties.png");
+
+    &:hover {
+      opacity: 1;
+    }
+
+  }
+
   &__delete {
     @include halo-button;
     background-image: url("../images/delete.png");

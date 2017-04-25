@@ -65,24 +65,6 @@ export class Element extends UIElement {
 export class FatClassModel extends Backbone.Model {
     model: ClassModel;
 
-    aGlobalDensity?: number;
-    globalDensity?: number;
-    localDensity?: number;
-    density?: number;
-    contribution?: number;
-    nameSimplicity?: number;
-    basicLevel?: number;
-    ncValue?: number;
-    propertyCount?: number;
-    score?: number;
-    overallScore?: number;
-    covered: FatClassModel[];
-    allSuperClasses: FatClassModel[];
-    allSubClasses: FatClassModel[];
-    directSubClasses: FatClassModel[];
-    indirectSubClasses: FatClassModel[];
-    subKeyConcepts: FatClassModel[];
-
     get label(): { values: LocalizedString[] } { return this.get('label'); }
 
     constructor(classModel: ClassModel) {
@@ -90,13 +72,6 @@ export class FatClassModel extends Backbone.Model {
         this.model = classModel;
         this.set('label', classModel.label);
         this.set('count', classModel.count);
-        this.propertyCount = 0;
-        this.covered = [];
-        this.allSubClasses = [];
-        this.allSuperClasses = [];
-        this.directSubClasses = [];
-        this.indirectSubClasses = [];
-        this.subKeyConcepts = [];
     }
 }
 

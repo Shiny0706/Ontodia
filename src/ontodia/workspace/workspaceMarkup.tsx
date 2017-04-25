@@ -13,6 +13,7 @@ export interface Props {
     toolbar: React.ReactElement<any>;
     view: DiagramView;
     isViewOnly?: boolean;
+    isVisualization?: boolean;
 
     searchCriteria?: SearchCriteria;
     onSearchCriteriaChanged: (criteria: SearchCriteria) => void;
@@ -126,7 +127,7 @@ export class WorkspaceMarkup extends React.Component<Props, void> {
                             preventTextSelection={() => this.preventTextSelection()}
                             onDragDrop={(e, position) => this.props.view.onDragDrop(e, position)} />
                     </div>
-                    {!this.props.isViewOnly ? rightPanel : null}
+                    {!this.props.isViewOnly && !this.props.isVisualization? rightPanel : null}
                 </div>
             </div>
         );
