@@ -24,7 +24,7 @@ import {
     toSVG, ToSVGOptions, toDataURL, ToDataURLOptions,
 } from '../viewUtils/toSvg';
 
-import { Dictionary, ElementModel, LocalizedString } from '../data/model';
+import { Dictionary, ElementModel, LocalizedString, ConceptModel } from '../data/model';
 
 import { DiagramModel, chooseLocalizedText, uri2name } from './model';
 import { Element, FatClassModel, linkMarkerKey } from './elements';
@@ -119,6 +119,12 @@ export class DiagramView extends Backbone.Model {
         this.listenTo(this.model, 'state:dataLoaded', () => {
             this.model.resetHistory();
         });
+
+        this.listenTo(this, 'state:layoutForced', () => {
+            this.trigger('action:center', this.selectedElement);
+
+        });
+
     }
 
     public clearPaper() {
@@ -133,7 +139,7 @@ export class DiagramView extends Backbone.Model {
         let totalXOffset = 0;
         let x = 300, y = 300;
         let counter = 1;
-        each(this.model.getPureClassesById(), element => {
+        each(this.model.getConcepts(), element => {
             const element = this.createElementAt(element.id, {x: x, y: y, center:false});
             x += element.get('size').width;
             // Fixed max width of rows to 800px
@@ -166,15 +172,14 @@ export class DiagramView extends Backbone.Model {
         }
     }
 
-    visualizeKeyConcepts() {
-        let keyConcepts: FatClassModel[] = this.model.getKeyConcepts();
+    visualizeKeyConcepts(conceptCount: number) {
+        let keyConcepts: ConceptModel[] = this.model.extractKeyConcepts(conceptCount);
 
         this.model.initBatchCommand();
         let elementsToSelect: Element[] = [];
 
         let totalXOffset = 0;
         let x = 300, y = 300;
-        let counter = 1;
         each(keyConcepts, el => {
             const element = this.createElementAt(el.id, {x: x, y: y, center:false});
             x += element.get('size').width;
@@ -184,15 +189,17 @@ export class DiagramView extends Backbone.Model {
                 y += element.get('size').height + 50;
             }
             elementsToSelect.push(element);
-            counter++;
+            el.presentOnDiagram = true;
         });
 
         this.model.requestElementData(elementsToSelect);
         this.model.createVirtualLinksBetweenKeyConcepts();
-        // this.model.requestLinksOfType();
+        this.model.requestLinksOfType();
         this.selection.reset(elementsToSelect);
         this.model.storeBatchCommand();
     }
+
+
 
     visualizeCISWithRepresentationMode (){
         let filteredClasses = filter(this.model.classTree, clazz => {
@@ -410,8 +417,10 @@ export class DiagramView extends Backbone.Model {
                     renderDefaultHalo(selectedElement);
                 },
                 onAddToFilter: () => selectedElement.addToFilter(),
-                onToggleDisplayConnectedElements: () => this.displayConnectedElements(selectedElement);
-
+                onLoadMoreConcepts: () => {
+                    this.loadMoreConcepts(selectedElement);
+                },
+                isVisualizationMode: true,
             }), container);
         };
 
@@ -428,6 +437,49 @@ export class DiagramView extends Backbone.Model {
             unmountComponentAtNode(container);
             this.paper.el.removeChild(container);
         });
+    }
+
+    private selectedElement:Element;
+
+    private loadMoreConcepts(selectedElement: Element) {
+        this.selectedElement = selectedElement;
+
+        let concepts: ConceptModel = this.model.loadMoreConcepts(selectedElement.id);
+        const positionBoxSide = Math.round(Math.sqrt(concepts.length)) + 1;
+        const GRID_STEP = 100;
+        let pos;
+        let cellView = this.paper.findViewByModel(selectedElement);
+
+        if (cellView.model instanceof joint.dia.Element) {
+            pos = cellView.model.position();
+        } else {
+            pos = cellView.getBBox();
+        }
+        const startX = pos.x - positionBoxSide * GRID_STEP / 2;
+        const startY = pos.y - positionBoxSide * GRID_STEP / 2;
+        let xi = 0;
+        let yi = 0;
+
+        const addedElements: Element[] = [];
+        concepts.forEach(el => {
+            if (xi > positionBoxSide) {
+                xi = 0;
+                yi++;
+            }
+            if (xi === Math.round(positionBoxSide / 2)) {
+                xi++;
+            }
+            if (yi === Math.round(positionBoxSide / 2)) {
+                yi++;
+            }
+
+            const element = this.createElementAt(el.id, {x: startX + (xi++) * GRID_STEP, y: startY + (yi) * GRID_STEP});
+            el.presentOnDiagram = true;
+            addedElements.push(element);
+        });
+
+        this.model.requestElementData(addedElements);
+        this.model.requestLinksOfType();
     }
 
     showNavigationMenu(element: Element) {

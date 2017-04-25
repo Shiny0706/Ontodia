@@ -1,9 +1,9 @@
 import * as Backbone from 'backbone';
-import { each, size, values, keyBy, defaults, uniqueId, sortBy, take, takeRight, difference, union, uniqBy} from 'lodash';
+import { each, size, values, keyBy, defaults, clone, sortBy, take, filter, difference, union, uniqBy} from 'lodash';
 import * as joint from 'jointjs';
 
 import {
-    Dictionary, LocalizedString, LinkType, ClassModel, ElementModel, LinkModel, PropertyCount,
+    Dictionary, LocalizedString, LinkType, ClassModel, ElementModel, LinkModel, PropertyCount, ConceptModel,
 } from '../data/model';
 import { DataProvider } from '../data/provider';
 
@@ -12,7 +12,6 @@ import { Element, Link, FatLinkType, FatClassModel, RichProperty } from './eleme
 import { DataFetchingThread } from './dataFetchingThread';
 import Config from '../../../stardogConfig';
 import {getConceptAndConceptRepresentationOfResource} from '../data/sparql/provider';
-import max = require("lodash/max");
 
 export type IgnoreCommandHistory = { ignoreCommandManager?: boolean };
 export type PreventLinksLoading = { preventLoading?: boolean; };
@@ -47,13 +46,16 @@ export class DiagramModel extends Backbone.Model {
     dataProvider: DataProvider;
 
     classTree: ClassTreeElement[];
-    pureClassTree: ClassTreeElement[];
+    conceptTree: ClassTreeElement[];
+
+    private rootConcept: ConceptModel;
 
     private classesById: Dictionary<FatClassModel> = {};
-    private pureClassesById: Dictionary<FatClassModel> = {};
-    private fatClasses: FatClassModel[] = [];
+
+    private conceptsById: Dictionary<ConceptModel> = {};
+    private concepts: ConceptModel[] = [];
+    private paths: ConceptModel[][];
     private maxLevel: number;
-    private nodesByLevel: Dictionary<FatClassModel[]> = {};
     private propertyLabelById: Dictionary<RichProperty> = {};
 
     private nextLinkTypeIndex = 0;
@@ -65,7 +67,7 @@ export class DiagramModel extends Backbone.Model {
     private linkFetchingThread: DataFetchingThread;
     private propertyLabelFetchingThread: DataFetchingThread;
 
-    private keyConcepts: FatClassModel[];
+    private keyConcepts: ConceptModel[];
 
     constructor(isViewOnly = false) {
         super();
@@ -153,7 +155,7 @@ export class DiagramModel extends Backbone.Model {
         return Promise.all<any>([
             this.dataProvider.classTree(),
             this.dataProvider.linkTypes(),
-        ]).then(([[classTree, pureClassTree], linkTypes]: [[ClassModel[], ClassModel[]], LinkType[]]) => {
+        ]).then(([[classTree, conceptTree], linkTypes]: [[ClassModel[], ClassModel[]], LinkType[]]) => {
             this.setClassTree(classTree);
             this.initLinkTypes(linkTypes);
             this.trigger('state:endLoad', 0);
@@ -189,10 +191,9 @@ export class DiagramModel extends Backbone.Model {
             this.dataProvider.classTree(),
             this.dataProvider.linkTypes(),
             this.dataProvider.propertyCountOfClasses(),
-        ]).then(([[classTree, pureClassTree], linkTypes, propertyCount]) => {
+        ]).then(([[classTree, root], linkTypes, propertyCount]) => {
             this.setClassTree(classTree);
-            this.setPureClassTree(pureClassTree, propertyCount);
-            this.keyConcepts = this.extractConcepts(16);
+            this.setConceptTree(root, propertyCount);
             this.initLinkTypes(linkTypes);
             this.trigger('state:endLoad', size(params.preloadedElements));
             this.initLinkSettings(params.linkSettings);
@@ -223,66 +224,98 @@ export class DiagramModel extends Backbone.Model {
         return {layoutData, linkSettings};
     }
 
-    setPureClassTree(rootPureClassesTree: ClassModel[], propertyCount: PropertyCount[]) {
+    setConceptTree(root: ClassModel, propertyCount: PropertyCount[]) {
+        this.conceptTree = root;
+        const addConcept = (cl: ClassTreeElement, level: number) => {
+            let conceptModel = DiagramModel.getConceptModel(cl);
+            conceptModel.level = level;
 
-        this.pureClassTree = rootPureClassesTree;
-        const addPureClass = (cl: ClassTreeElement, level: number) => {
-            let classModel = new FatClassModel(cl);
-            classModel.set('level', level);
+            this.concepts.push(conceptModel);
 
-            this.fatClasses.push(classModel);
-
-            this.pureClassesById[cl.id] = classModel;
-
-            if(this.nodesByLevel[level] === undefined) {
-                this.nodesByLevel[level] = [];
-            }
-            this.nodesByLevel[level].push(classModel);
+            this.conceptsById[cl.id] = conceptModel;
 
             if(level > this.maxLevel) {
                 this.maxLevel = level;
             }
 
             if(cl.children.length > 0) {
-                let childrenLevel =  level + 1;
-                let basicLevel = 0;
+                let childLevel = level + 1;
                 each(cl.children, (el) => {
-                    basicLevel += addPureClass(el, childrenLevel);
-                    let addedChild:FatClassModel = this.pureClassesById[el.id];
-                    classModel.directSubClasses.push(addedChild);
-                    classModel.allSubClasses.push(addedChild);
-                    each(addedChild.allSubClasses, childOfChild => {
-                        classModel.allSubClasses.push(childOfChild);
-                        classModel.indirectSubClasses.push(childOfChild);
+                    addConcept(el, childLevel);
+                    let addedSubConcept: ConceptModel = this.conceptsById[el.id];
+                    conceptModel.directSubConcepts.push(addedSubConcept);
+                    conceptModel.allSubConcepts.push(addedSubConcept);
+                    each(addedSubConcept.allSubConcepts, childOfChild => {
+                        conceptModel.allSubConcepts.push(childOfChild);
+                        conceptModel.indirectSubConcepts.push(childOfChild);
                     });
                 });
-                classModel.basicLevel = basicLevel;
-                return basicLevel;
-            } else {
-                classModel.basicLevel = 0;
-                return 1;
             }
         };
 
-        this.maxLevel = 1;
-        each(rootPureClassesTree, (el) => {
-            addPureClass(el, 1);
+        addConcept(root, 1);
+
+        let addSuperConcepts = (concept: ConceptModel)  => {
+            let superConceptId = concept.parent;
+            while(superConceptId) {
+                let superConcept = this.conceptsById[superConceptId];
+                concept.allSuperConcepts.push(superConcept);
+                superConceptId = superConcept.parent;
+            }
+        };
+
+        // Add super concept for addedSubConcept then update covered
+        // This won't take into account situation when concept has more than one super concepts
+        each(this.concepts, concept => {
+            addSuperConcepts(concept);
+            concept.covered = union(concept.allSuperConcepts, concept.allSubConcepts, [concept]);
         });
 
         each(propertyCount, (item) =>  {
-            if(this.pureClassesById[item.id]) {
-                this.pureClassesById[item.id].propertyCount = item.count;
+            if(this.conceptsById[item.id]) {
+                this.conceptsById[item.id].propertyCount = item.count;
             }
         });
 
+        this.rootConcept = this.conceptsById[root.id];
+        let path: ConceptModel[] = [];
+        this.calcAllPaths(this.rootConcept, path);
     }
 
-    getPureClassesById() {
-        return this.pureClassesById;
+    private static getConceptModel(cl: ClassTreeElement) : ConceptModel{
+        return {
+            id: cl.id,
+            children: cl.children,
+            label: cl.label,
+            count: cl.count,
+            parent: cl.parent,
+            aGlobalDensity: 0,
+            globalDensity: 0,
+            localDensity: 0,
+            density: 0,
+            contribution: 0,
+            nameSimplicity: 0,
+            basicLevel: 0,
+            ncValue: 0,
+            propertyCount: 0,
+            score: 0,
+            overallScore: 0,
+            covered: [],
+            allSuperConcepts: [],
+            allSubConcepts: [],
+            directSubConcepts: [],
+            indirectSubConcepts: [],
+            subKeyConcepts: [],
+            presentOnDiagram: false,
+        };
     }
 
-    getPureClassTree() : ClassTreeElement[]{
-        return this.pureClassTree;
+    /**
+     * Get concepts (classes or instances of class Concept
+     * @returns {ConceptModel[]}
+     */
+    getConcepts(): ConceptModel[] {
+        return this.concepts;
     }
 
     private setClassTree(rootClasses: ClassModel[]) {
@@ -400,7 +433,11 @@ export class DiagramModel extends Backbone.Model {
         return element;
     }
 
-    // Load data of ui elements: element's id, label, types, properties(object properties, data properties and their values)
+    /**
+     * Load data of ui elements: element's id, label, types, properties(object properties, data properties and their values)
+     * @param elements
+     * @returns {any}
+     */
     requestElementData(elements: Element[]) {
         return this.dataProvider.elementInfo({elementIds: elements.map(e => e.id)})
             .then(models => this.onElementInfoLoaded(models))
@@ -410,7 +447,11 @@ export class DiagramModel extends Backbone.Model {
             });
     }
 
-    // Load links that related to all elements in diagram
+    /**
+     * Load links that related to all elements in diagram
+     * @param linkTypeIds
+     * @returns {any}
+     */
     requestLinksOfType(linkTypeIds?: string[]) {
         let linkTypes = linkTypeIds;
         if (!linkTypes) {
@@ -426,66 +467,65 @@ export class DiagramModel extends Backbone.Model {
         });
     }
 
-    private getPureClassById(id: string) {
-        return this.pureClassesById[id];
-    }
-
+    /**
+     * Create virtual links among key concepts, include direct and indirect links rdfs:SubClassOf
+     */
     public createVirtualLinksBetweenKeyConcepts() {
-        let root = this.getPureClassById('http://www.w3.org/2002/07/owl#Thing');
-        let kcMap:Dictionary<FatClassModel> = {};
+        let root = this.rootConcept;
+        let kcMap:Dictionary<ConceptModel> = {};
         each(this.keyConcepts, concept => {
             kcMap[concept.id] = concept;
         });
 
         // Init current node list
-        let currentLevelNodes: FatClassModel[] = [root];
+        let currentLevelNodes: ConceptModel[] = [root];
         delete kcMap[root.id];
 
         let links: LinkModel[] = [];
         let level = 0;
         while(currentLevelNodes.length > 0) {
             ++level;
-            let nextLevelNodes: FatClassModel[] = [];
+            let nextLevelNodes: ConceptModel[] = [];
             each(currentLevelNodes, node => {
-                each(node.directSubClasses, subClass =>  {
-                    if(kcMap[subClass.id]) {
-                        // add direct is-a link then remove subClass from kcMap
-                        node.subKeyConcepts.push(subClass);
-                        nextLevelNodes.push(subClass);
+                each(node.directSubConcepts, subConcept =>  {
+                    if(kcMap[subConcept.id]) {
+                        // add direct is-a link then remove subConcept from kcMap
+                        node.subKeyConcepts.push(subConcept);
+                        nextLevelNodes.push(subConcept);
                         let link = {
                             linkTypeId: 'http://www.w3.org/2000/01/rdf-schema#subClassOf',
-                            sourceId: subClass.id,
+                            sourceId: subConcept.id,
                             targetId: node.id
                         };
                         links.push(link);
                     }
                 });
 
-                each(node.indirectSubClasses, indirectSubClass =>  {
-                    if(kcMap[indirectSubClass.id]) {
+                each(node.indirectSubConcepts, indirectSubConcept =>  {
+                    if(kcMap[indirectSubConcept.id]) {
                         let found = false;
-                        let superClasses = indirectSubClass.allSuperClasses;
-                        for(let i = 0; i < superClasses.length; ++i){
-                            if(kcMap[superClasses[i].id]) {
+                        let superConcepts = indirectSubConcept.allSuperConcepts;
+                        for(let i = 0; i < superConcepts.length; ++i){
+                            if(kcMap[superConcepts[i].id]) {
                                 found = true;
                                 break;
                             }
                         }
                         if(!found) {
                             // add indirect is-a link then remove indirectSubClass from kcMap
-                            node.subKeyConcepts.push(indirectSubClass);
-                            nextLevelNodes.push(indirectSubClass);
+                            node.subKeyConcepts.push(indirectSubConcept);
+                            nextLevelNodes.push(indirectSubConcept);
                             let link = {
                                 linkTypeId: 'http://www.w3.org/2000/01/rdf-schema#subClassOf',
-                                sourceId: subClass.id,
+                                sourceId: indirectSubConcept.id,
                                 targetId: node.id
-                            }
-                            link.push(link);
+                            };
+                            links.push(link);
                             console.log('add an indirect link');
+                            console.log(link);
                         }
                     }
                 });
-
             });
             each(nextLevelNodes, nextLevelNode => {
                delete kcMap[nextLevelNode.id];
@@ -495,20 +535,20 @@ export class DiagramModel extends Backbone.Model {
         this.onLinkInfoLoaded(links);
     }
 
-    private k = 15;
-    private ncConstant = 0.3;
-    private weightBasicLevel:number = 0.66;
-    private weightNameSimplicity: number = 0.33;
-    private weightLocalDensity = 0.32;
-    private weightGlobalDensity = 0.08;
-    private weightSubClasses : number = 0.8;
-    private weightProperties : number = 0.1;
-    private weightInstances: number = 0.1;
-    private weightCO: number = 0.6;
-    private weightCR: number = 0.4;
+    private NC_CONSTANT = 0.3;
+    private WEIGHT_BASIC_LEVEL:number = 0.66;
+    private WEIGHT_NAME_SIMPLICITY: number = 0.33;
+    private WEIGHT_LOCAL_DENSITY = 0.32;
+    private WEIGHT_GLOBAL_DENSITY = 0.08;
+    private WEIGHT_SUBCLASSES : number = 0.8;
+    private WEIGHT_PROPERTIES : number = 0.1;
+    private WEIGHT_INSTANCES: number = 0.1;
+    private WEIGHT_CO: number = 0.6;
+    private WEIGHT_CR: number = 0.4;
+    private RATIO_DISTANCE = 0.1;
+    private WEIGHT_GDL = 0.5;
+    private LOAD_AMOUNT = 5;
     private maxAGlobalDensity = 0;
-    private maxContribution: number = 0;
-    private maxOverallScore: number = 0;
 
     /**
      * Extract key concepts by using algorithm Key Concepts Extraction
@@ -516,178 +556,172 @@ export class DiagramModel extends Backbone.Model {
      * @param n - number of key concepts to extract
      * @return - key concepts
      */
-    public extractConcepts(n: number): FatClassModel[]{
-        this.calcAllDensity();
-        this.calcAllScores();
-        this.calcAllNameSimplicity();
-        this.calcAllNaturalCategoryValue();
-        this.calcAllScores();
-        this.fatClasses = sortBy(this.fatClasses,
-                [function(classModel) {
-                    // This is a tricky thing, sortBy yields a result with ascending ...
-                    return -classModel.score;
+    public extractKeyConcepts(n: number): ConceptModel[]{
+        this.calcDensityOfConcepts();
+        this.calcNaturalCategoryValueOfConcepts();
+        this.calcScoreOfConcepts();
+
+        if(n >= this.concepts.length) {
+            this.keyConcepts = this.concepts;
+        } else {
+            // Sort concepts by score
+            this.concepts = sortBy(this.concepts,[function(concept) {
+               return -concept.score;
+            }]);
+
+            let bestConceptSet: ConceptModel[] = take(this.concepts, n);
+
+            let loop = true;
+            let counter = 0;
+            while(loop) {
+                loop = false;
+                counter++;
+
+                // Calc contribution of each concept in bestConceptSet and average value of them
+                let avgContribution = this.calcContributionOfConcepts(bestConceptSet);
+
+                // Calc overallScore of each concept in bestConceptSet and average value of them
+                let avgOverallScore = this.calcOverallScoreOfConcepts(bestConceptSet);
+
+                // Find concept with the worst overall score
+                let worstOverallScoreConcept = this.findConceptWithWorstOverallScore(bestConceptSet);
+
+                let excludedWorstScoreConceptSet = difference(bestConceptSet, [worstOverallScoreConcept]);
+
+                // Remain concepts after taking best concepts
+                let remainConcepts: ConceptModel[] =  difference(this.concepts, bestConceptSet);
+
+                for(let i = 0; i < remainConcepts.length && !loop; ++i) {
+                    let newConceptSet = union(excludedWorstScoreConceptSet, [remainConcepts[i]]);
+
+                    // Calc contribution of all concepts in newConceptSet
+                    let avgContribution1 = this.calcContributionOfConcepts(newConceptSet);
+
+                    // Calc overallScore of all concepts in newConceptSet
+                    let avgOverallScore1 = this.calcOverallScoreOfConcepts(newConceptSet);
+
+                    if(avgOverallScore1 > avgOverallScore && avgContribution1 >= avgContribution) {
+                        loop = true;
+                        bestConceptSet = newConceptSet;
+                        console.log('breaking');
+                    }
+
+
                 }
-             ]);
-        let kBestClasses: FatClassModel[] = take(this.fatClasses, this.k);
-        let remainClasses: FatClassModel[] = takeRight(this.fatClasses, this.fatClasses.length - this.k);
-        let secondaryBestClasses: FatClassModel[] = take (remainClasses, n-this.k);
-        let nBestClasses: FatClassModel[] = take(this.fatClasses, n);
-        let remainClassesAfterTakeN: FatClassModel[] =  takeRight(this.fatClasses, this.fatClasses.length -n);
-        if(secondaryBestClasses.length == 0) {
-            return kBestClasses;
+                console.log('looping...' + counter);
+            }
+            console.log("Number of loop: " + counter);
+
+            this.keyConcepts = bestConceptSet;
         }
 
-        this.findCoveredOfClasses();
-
-        let loop = true;
-        let newClassesSet = nBestClasses;
-        let counter = 0;
-        while(loop) {
-            counter++;
-            // Calc contribution of all classes in nBestClasses
-            let avgContribution = this.calcAvgContribution(newClassesSet);
-
-            // Calc overallScore of all classes in nBestClasses
-            let avgOverallScore = this.calcAvgOverallScore(newClassesSet);
-
-            // Find class with the worst value of overallScore
-            let worstScore: number = this.maxOverallScore;
-            let worstScoreClass: FatClassModel = undefined;
-            each(newClassesSet, classModel =>  {
-                if(classModel.overallScore < worstScore) {
-                    worstScore = classModel.overallScore;
-                    worstScoreClass = classModel;
-                }
-            });
-
-            let excludedWorstScoreClassSet = difference(nBestClasses, [worstScoreClass]);
-            each(remainClassesAfterTakeN, remainClass => {
-                newClassesSet = union(excludedWorstScoreClassSet, [remainClass]);
-
-                // Calc contribution of all classes in newClassesSet
-                let avgContribution1 = this.calcAvgContribution(newClassesSet);
-
-                // Calc overallScore of all classes in newClassesSet
-                let avgOverallScore1 = this.calcAvgOverallScore(newClassesSet);
-
-                if(avgContribution1 >= avgContribution && avgOverallScore1 >= avgOverallScore) {
-                    loop = true;
-                } else {
-                    loop = false;
-                }
-            });
-        }
-
-        console.log("Number of loop: " + counter);
-        return newClassesSet;
-    }
-
-    /**
-     * Return extracted concepts
-     */
-    public getKeyConcepts(): FatClassModel[] {
         return this.keyConcepts;
     }
 
-    /**
-     * Cal average contribution of each classes in set fatClasses
-     *
-     * @param fatClasses
-     * @returns {number}
-     */
-    // TODO: check for correction of this function
-    private calcAvgContribution(fatClasses: FatClassModel[]): number {
-        let sumContribution  = 0;
-        this.maxContribution = 0;
-        // Calculate contribution value of class in set fatClasses
-        each(fatClasses, classModel => {
-            let excludedCurrentClass = difference(fatClasses, [classModel]);
-            let classes = [];
-            each(excludedCurrentClass, el => {
-                classes = union(classes, el.covered);
-            });
-            classes = uniqBy(classes, function(classModel) {
-                return classModel.id;
-            });
-            let contribution = this.findContribution(classModel.covered, classes);
-            classModel.contribution = contribution;
-            sumContribution += contribution;
-            if(contribution > this.maxContribution) {
-                this.maxContribution = contribution;
+    public loadMoreConcepts(conceptId: string) {
+        let concept: ConceptModel = this.conceptsById[conceptId];
+        let unShownConcepts = filter(concept.allSubConcepts, function(subConcept) { return !subConcept.presentOnDiagram; });
+        unShownConcepts = sortBy(unShownConcepts,[function(concept) {
+            return -concept.score;
+        }]);
+        return take(unShownConcepts, this.LOAD_AMOUNT);
+    }
+
+    private findConceptWithWorstOverallScore(concepts: ConceptModel[]): Concept {
+        let worstOverallScore = 2; // The overall score value never exceed 2
+        let result: Concept = undefined;
+        each(concepts, concept => {
+            if(concept.overallScore < worstOverallScore) {
+                worstOverallScore = concept.overallScore;
+                result = concept;
             }
         });
-
-        return sumContribution/fatClasses.length;
+        return result;
     }
 
     /**
-     * Find contribution of each class in firstSet
+     * Calculate contribution of each concept in concepts set and average of those values
+     *
+     * @param concepts
+     * @returns {number} - average contribution
+     */
+    private calcContributionOfConcepts(concepts: ConceptModel[]): number {
+        let sumContribution  = 0;
+
+        // Calculate contribution value of each concept in concepts
+        each(concepts, concept => {
+            let coverOfOtherConcepts: ConceptModel[] = [];
+            each(concepts, el => {
+                if(el !== concept) {
+                    coverOfOtherConcepts = union(coverOfOtherConcepts, el.covered);
+                }
+            });
+
+            let contribution = (difference(concept.covered, coverOfOtherConcepts)).length;
+            concept.contribution = contribution;
+            sumContribution += contribution;
+        });
+
+        return sumContribution/concepts.length;
+    }
+
+
+    /**
+     * Calculate size of result when subtract 2 set
      * @param firstSet
      * @param secondSet
      * @returns {number}
      */
-    private findContribution(firstSet: FatClassModel[], secondSet: FatClassModel[]) {
-        let contribution = 0;
-        each(firstSet, classModel =>  {
-            if(secondSet.indexOf(classModel) >= 0) {
-                contribution ++;
+    private calcSubtractionSize(firstSet: ConceptModel[], secondSet: ConceptModel[]): number {
+        let counter = 0;
+        each(firstSet, item =>  {
+            if(secondSet.indexOf(item) < 0) {
+                counter ++;
             }
         });
-        return contribution;
+        return counter;
     }
 
     /**
-     * Calc overall score of all class in set fatClasses
+     * Calc overall score of all class in set concepts
      * Overall score of each class will be changed according to the set this class is located in
      *
-     * @param fatClasses
-     * @returns {number}
+     * @param concepts
+     * @returns {number} - average of overall score of each concepts in concepts set
      */
-    private calcAvgOverallScore(fatClasses: FatClassModel[]): number {
+    private calcOverallScoreOfConcepts(concepts: ConceptModel[]): number {
         let sumOverallScore = 0;
-        this.maxOverallScore = 0;
-        each(fatClasses, classModel =>  {
-            let overallScore = this.weightCO * classModel.contribution/this.maxContribution + this.weightCR * classModel.score;
-            classModel.overallScore = overallScore;
+        let maxContribution = this.findMaxContribution(concepts);
+
+
+        each(concepts, concept =>  {
+            let overallScore = this.WEIGHT_CO * concept.contribution/maxContribution + this.WEIGHT_CR * concept.score;
+            concept.overallScore = overallScore;
             sumOverallScore += overallScore;
-            if(overallScore > this.maxOverallScore) {
-                this.maxOverallScore = overallScore;
+        });
+
+        if(!sumOverallScore) {
+
+        }
+        return sumOverallScore/concepts.length;
+    }
+
+    private findMaxContribution(concepts: ConceptModel[]) {
+        let maxContribution = 0;
+        each(concepts, concept => {
+            if(concept.contribution > maxContribution) {
+                maxContribution = concept.contribution;
             }
         });
-        return sumOverallScore/fatClasses.length;
-    }
-
-    /**
-     * Union all superclasses and subclasses into covered
-     */
-    // TODO: consider removing this method, assign value of covered in setPureClassTree
-    private findCoveredOfClasses() {
-        each(this.fatClasses, classModel => {
-            this.findAllSuperClasses(classModel);
-            classModel.covered = union(classModel.allSubClasses, [classModel], classModel.allSuperClasses);
-        });
-    }
-
-    /**
-     * Find all super classes of given classes
-     * @param classModel
-     */
-    // TODO: remove this method cuz we have field allSuperclasses in FatClassModel
-    private findAllSuperClasses(classModel: FatClassModel) {
-        let parentId = classModel.model.parent;
-        while(parentId) {
-            let parentClassModel = this.pureClassesById[parentId];
-            classModel.allSuperClasses.push(parentClassModel);
-            parentId = parentClassModel.model.parent;
-        }
+        return maxContribution;
     }
 
     /**
      * Calc score of all classes
      */
-    private calcAllScores() {
-        each(this.fatClasses, classModel => {
-            classModel.score = classModel.ncValue + classModel.density;
+    private calcScoreOfConcepts() {
+        each(this.concepts, concept => {
+            concept.score = concept.ncValue + concept.density;
         });
     }
 
@@ -695,82 +729,128 @@ export class DiagramModel extends Backbone.Model {
      * Calculate name simplicity value of all classes
      * This method works correctly if each class is an owl classes
      */
-    private calcAllNameSimplicity() {
-        each(this.fatClasses, classModel => {
-            let name = uri2name(classModel.id);
+    private calcNameSimplicityOfConcepts() {
+        each(this.concepts, concept => {
+            let name = uri2name(concept.id);
             // Concept is named by owl naming convention
             var numberOfCompound = name.length - name.replace(/[A-Z]/g, '').length;
-            classModel.nameSimplicity = 1 - this.ncConstant * (numberOfCompound -1);
+            concept.nameSimplicity = 1 - this.NC_CONSTANT * (numberOfCompound -1);
         });
+    }
+
+    /**
+     * Calculate basic level of concepts
+     */
+    private calcBasicLevelOfConcepts() {
+        let max: number = 0;
+        each(this.paths, path => {
+            // Length of path should >= 3
+            if(path.length > 3) {
+                for(let i = 1; i <path.length -1; ++i) {
+                    let basicLevel = path[i].basicLevel + 1;
+                    path[i].basicLevel = basicLevel;
+                    if(basicLevel > max) {
+                        max = basicLevel;
+                    }
+                }
+            }
+        });
+
+        // Normalize basic level of each concepts
+        each(this.concepts, concept => {
+            concept.basicLevel = concept.basicLevel/max;
+        });
+    }
+
+    private calcAllPaths(start: ConceptModel, path: ConceptModel[]): ConceptModel[][] {
+        let result: ConceptModel[][] = [];
+        if(path.indexOf(start) < 0) {
+            let currentPath: ConceptModel[] = clone(path);
+            currentPath.push(start);
+
+            let subConcepts: ConceptModel[] = start.directSubConcepts;
+            if(subConcepts.length == 0) {
+                result.push(currentPath);
+            } else {
+                each(subConcepts, subConcept => {
+                    let subResults: ConceptModel[][] = this.calcAllPaths(subConcept, clone(currentPath));
+                    each(subResults, subResult => {
+                        result.push(subResult);
+                    });
+                });
+            }
+        }
+        return result;
     }
 
     /**
      * Calculate natural category value of all classes
      */
-    private calcAllNaturalCategoryValue () {
-        each(this.fatClasses, classModel => {
-            let ncValue = this.weightBasicLevel * classModel.basicLevel;
-                + this.weightNameSimplicity * classModel.nameSimplicity;
-            classModel.ncValue = ncValue;
+    private calcNaturalCategoryValueOfConcepts () {
+        this.calcNameSimplicityOfConcepts();
+        this.calcBasicLevelOfConcepts();
+        each(this.concepts, concept => {
+            let ncValue = this.WEIGHT_BASIC_LEVEL * concept.basicLevel;
+                + this.WEIGHT_NAME_SIMPLICITY * concept.nameSimplicity;
+            concept.ncValue = ncValue;
         });
     }
 
     /**
      * Calculate global density, local density and density of each classes
      */
-    private calcAllDensity() {
+    private calcDensityOfConcepts() {
         // Find aGlobalDensity of class and maxAGlobalDensity
-        each(this.fatClasses, classModel => {
-            let aGlobalDensity: number =  classModel.model.children.length * this.weightSubClasses
-                + classModel.model.count * this.weightInstances
-                + classModel.propertyCount * this.weightProperties;
-            classModel.aGlobalDensity = aGlobalDensity;
+        each(this.concepts, concept => {
+            let aGlobalDensity: number =  concept.children.length * this.WEIGHT_SUBCLASSES
+                + concept.count * this.WEIGHT_INSTANCES
+                + concept.propertyCount * this.WEIGHT_PROPERTIES;
+            concept.aGlobalDensity = aGlobalDensity;
             if(aGlobalDensity > this.maxAGlobalDensity) {
                 this.maxAGlobalDensity = aGlobalDensity;
             }
         });
 
         // Calc densities
-        this.fatClasses.forEach(classModel => {
+        this.concepts.forEach(concept => {
             // Calc global density
-            classModel.globalDensity = classModel.aGlobalDensity / this.maxAGlobalDensity;
+            concept.globalDensity = concept.aGlobalDensity / this.maxAGlobalDensity;
             // Calc local density
-            this.calcLocalDensity(classModel);
+            this.calcLocalDensity(concept);
             // Calc density
-            classModel.density = this.weightGlobalDensity * classModel.globalDensity
-                + this.weightLocalDensity * classModel.localDensity;
+            concept.density = this.WEIGHT_GLOBAL_DENSITY * concept.globalDensity
+                + this.WEIGHT_LOCAL_DENSITY * concept.localDensity;
         });
     }
 
     /**
-     * Calculate local density of current class
+     * Calculate local density of given class
      *
-     * @param classModel
+     * @param concept
      */
-    // TODO: reveal the local density formula
-    private calcLocalDensity(classModel: FatClassModel) {
-        let maxGlobalDensityNearestClasses = 0;
-        let nearestClasses = this.getNearestClassesKLevel(2, classModel);
-        each(nearestClasses, nearestClass =>  {
-            if(nearestClass.globalDensity > maxGlobalDensityNearestClasses) {
-                maxGlobalDensityNearestClasses = nearestClass.globalDensity;
+    private calcLocalDensity(concept: ConceptModel) {
+        let maxWeightedGlobalDensity = 0;
+        let nearestConcepts = this.getNearestConceptsKLevel(2, concept);
+        each(nearestConcepts, nearestConcept =>  {
+            let weightedGlobalDensity = (1 - (this.RATIO_DISTANCE * Math.abs(concept.level - nearestConcept.level))) * nearestConcept.globalDensity;
+            if(weightedGlobalDensity > maxWeightedGlobalDensity) {
+                maxWeightedGlobalDensity = weightedGlobalDensity;
             }
         });
-
-        classModel.localDensity = classModel.globalDensity/maxGlobalDensityNearestClasses;
+        concept.localDensity = concept.globalDensity/maxWeightedGlobalDensity + this.WEIGHT_GDL * concept.globalDensity;
     }
 
     /**
-     * Get superclasses and subclasses of current class up to k level
+     * Get parents and sub concepts of current concept up to k level
      *
      * @param k - number of level
-     * @param classModel - class that is covered by
-     * @returns {FatClassModel[]}
+     * @param concept - concept that is covered by
+     * @returns {ConceptModel[]}
      */
-    private getNearestClassesKLevel(k: number, classModel: FatClassModel) : FatClassModel[]{
-        let nearestClasses: FatClassModel[] = [];
-        nearestClasses.push(classModel);
-        let current = classModel;
+    private getNearestConceptsKLevel(k: number, concept: ConceptModel) : ConceptModel[]{
+        let nearestClasses: ConceptModel[] = [];
+        nearestClasses.push(concept);
+        let current:ConceptModel = concept;
         for( let i = 0; i < k; ++i) {
             let parent = this.getParent(current);
             if(parent) {
@@ -779,42 +859,35 @@ export class DiagramModel extends Backbone.Model {
             }
         }
 
-        // TODO: add more than one level
-        let childFatClasses = this.getChildFatClass(classModel);
-        each(childFatClasses, child => {
-            nearestClasses.push(child);
-        });
-        return nearestClasses;
-    }
-
-    /**
-     * Get direct subclasses of current class
-     * @param classModel
-     * @returns {FatClassModel[]}
-     */
-    // TODO: consider removing this function cuz we have directSubclasses in FatClassModel
-    private getChildFatClass(classModel: FatClassModel) : FatClassModel[]{
-        let childFatClasses: FatClassModel[] = [];
-        let children = classModel.model.children;
-        if(children.length > 0) {
-            each(children, child =>  {
-                childFatClasses.push(child.id);
-            });
+        let addSubConceptsKLevel = (superLevel: number, concept: ConceptModel, k: number ) : ConceptModel[] => {
+            let result:ConceptModel[] = [];
+            if(concept.level  + 1 - superLevel <= k) {
+                each(concept.directSubConcepts, subConcept =>  {
+                    result.push(subConcept);
+                    let subResult: ConceptModel[] = addSubConceptsKLevel(superLevel, subConcept, k);
+                    result = union(result, subResult);
+                });
+            }
+            return result;
         }
-        return childFatClasses;
+
+        let subConceptsKLevel:ConceptModel[] = addSubConceptsKLevel(concept.level, concept, k);
+        nearestClasses = union(nearestClasses, subConceptsKLevel);
+
+        return nearestClasses;
     }
 
     /**
      * Get superclass of given class
      *
-     * @param classModel
-     * @returns {FatClassModel}
+     * @param concept
+     * @returns {ConceptModel}
      */
-    private getParent(classModel: FatClassModel): FatClassModel {
-        let parentId = classModel.model.parent;
-        let parent: FatClassModel = undefined;
+    private getParent(concept: ConceptModel): ConceptModel {
+        let parentId = concept.parent;
+        let parent: ConceptModel = undefined;
         if(parentId) {
-            parent = this.pureClassesById[parentId];
+            parent = this.conceptsById[parentId];
         }
         return parent;
     }
@@ -947,7 +1020,6 @@ export class DiagramModel extends Backbone.Model {
             target: {id: targetId},
             vertices,
         });
-
         if (this.isSourceAndTargetVisible(link) && this.createLinkType(link.typeId).visible) {
             this.registerLink(link);
             this.graph.addCell(link, options);
@@ -989,11 +1061,10 @@ export class DiagramModel extends Backbone.Model {
     }
 
     public getSubClassInfo(id: string): string {
-        let classModel: FatClassModel = this.pureClassesById[id];
-        console.log(id);
-        console.log(this.pureClassesById);
-        if(classModel) {
-            return '(' + classModel.directSubClasses.length + ',' + classModel.indirectSubClasses.length + ')';
+        let concept: ConceptModel = this.conceptsById[id];
+        if(concept) {
+
+            return '(' + concept.directSubConcepts.length + ',' + concept.indirectSubConcepts.length + ')';
         }
         return '';
     }
@@ -1014,6 +1085,11 @@ export interface LinkTypeOptions {
     id: string;
     visible: boolean;
     showLabel?: boolean;
+}
+
+interface AvgAndMaxContribution {
+    avgContribution: number;
+    maxContribution: number;
 }
 
 function placeholderTemplateFromIri(iri: string): ElementModel {

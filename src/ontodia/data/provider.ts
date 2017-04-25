@@ -28,9 +28,8 @@ export interface DataProvider {
 
     filter(params: FilterParams): Promise<Dictionary<ElementModel>>;
 
-    propertyCountOfClasses(): Promise<LinkCount[]>;
+    propertyCountOfClasses(): Promise<PropertyCount[]>;
 
-    propertyCount(): Promise<PropertyCount[]>;
 }
 
 export default DataProvider;

@@ -9,8 +9,6 @@ import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } f
 require('jointjs/css/layout.css');
 require('jointjs/css/themes/default.css');
 
-let stardogEndpoint = Config.HOSTNAME + ':' + Config.PORT +'/' + Config.DB + '/query';
-
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
 
@@ -19,6 +17,13 @@ function onWorkspaceMounted(workspace: Workspace) {
         window.open(iri);
         console.log(iri);
     });
+
+    let stardogEndpoint = getParam('uri');
+
+    // load default stardog endpoint from config file if param uri not found
+    if(!stardogEndpoint) {
+        stardogEndpoint = Config.HOSTNAME + ':' + Config.PORT +'/' + Config.DB + '/query';
+    }
 
     const layoutData = tryLoadLayoutFromLocalStorage();
     model.importLayout({
@@ -32,6 +37,11 @@ function onWorkspaceMounted(workspace: Workspace) {
             ],
         }),
     });
+}
+
+let getParam = function (name) {
+    if(name=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search))
+        return decodeURIComponent(name[1]);
 }
 
 const props: WorkspaceProps & ClassAttributes<Workspace> = {

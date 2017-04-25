@@ -5,6 +5,11 @@
 
     > label > span { vertical-align: middle; }
   }
+  &__concept-count {
+    margin-top: 5px;
+    padding: 2px;
+    width: 50px;
+  }
 }
 .drawModeSelector {
     padding: 5px;

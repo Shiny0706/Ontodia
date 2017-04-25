@@ -12,6 +12,7 @@ const CUSTOM_LINK_STYLE: LinkStyle = {
     connection: {
         stroke: '#3c4260',
         'stroke-width': 2,
+        'stoke-dasharray':'5 2',
     },
     markerSource: {
         fill: '#4b4a67',

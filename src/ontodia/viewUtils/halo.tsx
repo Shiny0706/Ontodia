@@ -14,6 +14,8 @@ export interface Props {
     onToggleNavigationMenu?: () => void;
     onAddToFilter?: () => void;
     onToggleDisplayConnectedElements?: () => void;
+    onLoadMoreConcepts?: () => void;
+    isVisualizationMode: boolean;
 }
 
 const CLASS_NAME = 'ontodia-halo';
@@ -60,21 +62,27 @@ export class Halo extends React.Component<Props, void> {
             height: bbox.height,
             width: bbox.width,
         };
-        // TODO: add new div element to handle displaying connected elements
         return (
             <div className={CLASS_NAME} style={style}>
+                <div className={`${CLASS_NAME}__load-more-concept`}
+                     title='Load more concept to diagram'
+                     onClick={this.props.onLoadMoreConcepts} />
+                {(!this.props.isVisualizationMode) ? (
                 <div className={`${CLASS_NAME}__delete`}
                     title='Remove an element from the diagram'
                     onClick={this.props.onDelete} />
-
+                ): undefined}
+                {(!this.props.isVisualizationMode) ? (
                 <div className={`${CLASS_NAME}__navigate ` +
                     `${CLASS_NAME}__navigate--${navigationMenuOpened ? 'closed' : 'open'}`}
                     title='Open a dialog to navigate to connected elements'
                     onClick={this.props.onToggleNavigationMenu} />
-
+                ): undefined}
+                {(!this.props.isVisualizationMode) ? (
                 <div className={`${CLASS_NAME}__add-to-filter`}
                     title='Search for connected elements'
                     onClick={this.props.onAddToFilter} />
+                ): undefined}
                 <div className={`${CLASS_NAME}__expand ` +
                     `${CLASS_NAME}__expand--${cellExpanded ? 'closed' : 'open'}`}
                     title={`Expand an element to reveal additional properties`}

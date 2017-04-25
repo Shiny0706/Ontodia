@@ -11,6 +11,18 @@ const LINK_SUB_CLASS_OF: LinkStyle = {
     },
 };
 
+const LINK_INDIRECT_SUB_CLASS_OF: LinkStyle = {
+    connection: {
+        stroke: '#f8a485',
+        'stroke-width': 2,
+        'stroke-width': '5 3'
+    },
+    markerTarget: {
+        fill: '#f8a485',
+        stroke: '#cf8e76',
+    },
+};
+
 const LINK_DOMAIN: LinkStyle = {
     connection: {
         stroke: '#34c7f3',
