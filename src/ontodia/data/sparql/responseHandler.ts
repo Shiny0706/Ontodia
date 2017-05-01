@@ -1,3 +1,4 @@
+import {each} from 'lodash';
 import {
     RdfLiteral, SparqlResponse, ClassBinding, ElementBinding, LinkBinding,
     ElementImageBinding, LinkTypeBinding, LinkTypeInfoBinding, PropertyBinding,
@@ -74,6 +75,15 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassMode
             }
         }
     };
+
+    each(tempNodes, tempNode => {
+        let createdNode = createdTreeNodes[tempNode.id];
+        each(tempNode.children, childOfTemp => {
+            if(createdNode.children.indexOf(childOfTemp) < 0) {
+                createdNode.children.push(childOfTemp);
+            }
+        });
+    });
 
     let thingNode = createdTreeNodes[THING_URI];
     if (!thingNode) {
