@@ -1,10 +1,11 @@
 import { TypeStyleResolver } from './props';
 
 export const DefaultTypeStyleBundle: TypeStyleResolver[] = [
-    types => {
+    (types, recentlyExtracted) => {
         if (types.indexOf('http://www.w3.org/2002/07/owl#Class') !== -1 ||
             types.indexOf('http://www.w3.org/2000/01/rdf-schema#Class') !== -1
         ) {
+            if(recentlyExtracted) return {color: '#34c7f3', icon: 'ontodia-class-icon'};
             return {color: '#eaac77', icon: 'ontodia-class-icon'};
         } else if (types.indexOf('http://www.w3.org/2002/07/owl#ObjectProperty') !== -1) {
             return {color: '#34c7f3', icon: 'ontodia-object-property-icon'};

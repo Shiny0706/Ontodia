@@ -1,7 +1,10 @@
 import * as $ from 'jquery';
 
 import { DataProvider, FilterParams } from '../provider';
-import { Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel,PropertyCount } from '../model';
+import {
+    Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel, PropertyCount,
+    ConceptModel, ConceptModel
+} from '../model';
 import {
     getClassTree,
     getClassInfo,
@@ -66,6 +69,10 @@ export class SparqlDataProvider implements DataProvider {
         `;
         return executeSparqlQuery<ClassBinding>(
             this.options.endpointUrl, query).then(getClassTree);
+    }
+
+    conceptTree(): Promise<ConceptModel[]> {
+
     }
 
     propertyInfo(params: { propertyIds: string[] }): Promise<Dictionary<PropertyModel>> {

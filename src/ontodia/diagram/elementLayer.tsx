@@ -120,6 +120,7 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
         this.propertyObserver.observe(Object.keys(model.template.properties));
 
         const template = view.getElementTemplate(model.template.types);
+        console.log(model);
 
         const {x = 0, y = 0} = model.get('position') || {};
         let transform = `translate(${x}px,${y}px)`;
@@ -266,7 +267,7 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
     }
 
     private styleFor(model: Element) {
-        const {color: {h, c, l}, icon} = this.props.view.getTypeStyle(model.template.types);
+        const {color: {h, c, l}, icon} = this.props.view.getTypeStyle(model.template.types, model.get('recentlyExtracted'));
         return {
             icon: icon ? icon : 'ontodia-default-icon',
             color: hcl(h, c, l).toString(),

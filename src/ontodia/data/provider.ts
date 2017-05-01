@@ -5,6 +5,8 @@ import {
 export interface DataProvider {
     classTree(): Promise<ClassModel[]>;
 
+    conceptTree(): Promise<ClassModel[]>;
+
     classInfo(params: {
         classIds: string[];
     }): Promise<ClassModel[]>;

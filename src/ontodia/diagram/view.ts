@@ -20,6 +20,7 @@ import { DefaultTemplateBundle } from '../customization/templates/defaultTemplat
 
 import { Halo } from '../viewUtils/halo';
 import { ConnectionsMenu } from '../viewUtils/connectionsMenu';
+import { IsAPathMenu } from '../viewUtils/isAPathMenu';
 import {
     toSVG, ToSVGOptions, toDataURL, ToDataURLOptions,
 } from '../viewUtils/toSvg';
@@ -27,7 +28,7 @@ import {
 import { Dictionary, ElementModel, LocalizedString, ConceptModel } from '../data/model';
 
 import { DiagramModel, chooseLocalizedText, uri2name } from './model';
-import { Element, FatClassModel, linkMarkerKey } from './elements';
+import { Element, FatClassModel, linkMarkerKey , Link} from './elements';
 
 import { LinkView } from './linkView';
 import { SeparatedElementView } from './separatedElementView';
@@ -65,6 +66,9 @@ export class DiagramView extends Backbone.Model {
 
     paper: joint.dia.Paper;
     connectionsMenu: ConnectionsMenu;
+    isAPathMenu: IsAPathMenu;
+
+    private recentlyExtractedElements: Element[];
 
     readonly selection = new Backbone.Collection<Element>();
 
@@ -122,7 +126,6 @@ export class DiagramView extends Backbone.Model {
 
         this.listenTo(this, 'state:layoutForced', () => {
             this.trigger('action:center', this.selectedElement);
-
         });
 
     }
@@ -130,34 +133,7 @@ export class DiagramView extends Backbone.Model {
     public clearPaper() {
         this.model.graph.clear();
         this.selection.reset([]);
-    }
-
-    visualizePureClassTree() {
-        this.model.initBatchCommand();
-        let elementsToSelect: Element[] = [];
-
-        let totalXOffset = 0;
-        let x = 300, y = 300;
-        let counter = 1;
-        each(this.model.getConcepts(), element => {
-            const element = this.createElementAt(element.id, {x: x, y: y, center:false});
-            x += element.get('size').width;
-            // Fixed max width of rows to 800px
-            if(x >800) {
-                totalXOffset = 0;
-                x = 300;
-                y += element.get('size').height + 50;
-            }
-            elementsToSelect.push(element);
-            counter++;
-        });
-        this.model.requestElementData(elementsToSelect);
-        this.model.requestLinksOfType();
-        this.selection.reset(elementsToSelect);
-
-        this.trigger('state:ontologyDisplayed');
-
-        this.model.storeBatchCommand();
+        this.model.unShowConcepts();
     }
 
     visualizeCognitiveInformationSpace(drawingMode: string) {
@@ -173,8 +149,12 @@ export class DiagramView extends Backbone.Model {
     }
 
     visualizeKeyConcepts(conceptCount: number) {
-        let keyConcepts: ConceptModel[] = this.model.extractKeyConcepts(conceptCount);
 
+        this.model.graph.clear();
+        this.selection.reset([]);
+        this.model.unShowConcepts();
+
+        let keyConcepts: ConceptModel[] = this.model.extractKeyConcepts(conceptCount);
         this.model.initBatchCommand();
         let elementsToSelect: Element[] = [];
 
@@ -367,11 +347,30 @@ export class DiagramView extends Backbone.Model {
 
         this.listenTo(this.paper, 'cell:pointerup', (cellView: joint.dia.CellView, evt: MouseEvent) => {
             // We don't want a Halo for links.
-            if (cellView.model instanceof joint.dia.Link) { return; }
+            if (cellView.model instanceof joint.dia.Link) {
+                return;
+            }
             if (evt.ctrlKey || evt.shiftKey || evt.metaKey) { return; }
             const element = cellView.model as Element;
             this.selection.reset([element]);
             element.focus();
+        });
+
+        this.listenTo(this.paper, 'cell:mouseover', (cellView: joint.dia.CellView, evt: MouseEvent) => {
+            if (cellView.model instanceof joint.dia.Link) {
+                if(cellView.model.typeId === 'http://www.w3.org/2000/01/rdf-schema#indirectSubClassOf') {
+                    this.showIsAPath(cellView);
+                }
+            }
+        });
+
+        this.listenTo(this.paper, 'cell:mouseout', (cellView: joint.dia.CellView, evt: MouseEvent) => {
+            if (cellView.model instanceof joint.dia.Link) {
+                if(cellView.model.typeId === 'http://www.w3.org/2000/01/rdf-schema#indirectSubClassOf' && this.isAPathMenu) {
+                    this.isAPathMenu.remove();
+                    this.isAPathMenu = undefined;
+                }
+            }
         });
 
         let pointerScreenCoords = {x: NaN, y: NaN};
@@ -474,9 +473,16 @@ export class DiagramView extends Backbone.Model {
             }
 
             const element = this.createElementAt(el.id, {x: startX + (xi++) * GRID_STEP, y: startY + (yi) * GRID_STEP});
+            element.set('recentlyExtracted', true);
             el.presentOnDiagram = true;
             addedElements.push(element);
         });
+        if(addedElements.length > 0) {
+            each(this.recentlyExtractedElements, el => {
+                el.set('recentlyExtracted', false);
+            });
+            this.recentlyExtractedElements = addedElements;
+        }
 
         this.model.requestElementData(addedElements);
         this.model.requestLinksOfType();
@@ -495,10 +501,27 @@ export class DiagramView extends Backbone.Model {
         });
     }
 
+    showIsAPath(cellView: joint.dia.CellView) {
+        this.isAPathMenu = new IsAPathMenu({
+            paper: this.paper,
+            view: this,
+            cellView,
+            onClose: () => {
+                this.isAPathMenu.remove();
+                this.isAPathMenu = undefined;
+            },
+        });
+    }
+
     hideNavigationMenu() {
         if (this.connectionsMenu) {
             this.connectionsMenu.remove();
             this.connectionsMenu = undefined;
+        }
+
+        if(this.isAPathMenu) {
+            this.isAPathMenu.remove();
+            this.isAPathMenu = undefined;
         }
     }
 
@@ -594,12 +617,12 @@ export class DiagramView extends Backbone.Model {
     /**
      * @param types Type signature, MUST BE sorted; see DiagramModel.normalizeData()
      */
-    public getTypeStyle(types: string[]): TypeStyle {
+    public getTypeStyle(types: string[], recentlyExtracted?: boolean): TypeStyle {
         types.sort();
 
         let customStyle: CustomTypeStyle;
         for (const resolver of this.typeStyleResolvers) {
-            const result = resolver(types);
+            const result = resolver(types, recentlyExtracted);
             if (result) {
                 customStyle = result;
                 break;

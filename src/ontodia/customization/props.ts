@@ -2,7 +2,7 @@ import { ComponentClass } from 'react';
 
 import { Dictionary, Property } from '../data/model';
 
-export type TypeStyleResolver = (types: string[]) => CustomTypeStyle | undefined;
+export type TypeStyleResolver = (types: string[], recentlyExtracted?: boolean) => CustomTypeStyle | undefined;
 export type LinkStyleResolver = (type: string) => LinkStyle | undefined;
 export type TemplateResolver = (types: string[]) => ElementTemplate | undefined;
 

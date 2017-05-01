@@ -2,8 +2,8 @@ import { Component, createElement, ReactElement} from 'react';
 import * as Backbone from 'backbone';
 import * as joint from 'jointjs';
 
-import {DiagramModel, ClassTreeElement} from '../diagram/model';
-import { Link, FatLinkType, FatClassModel } from '../diagram/elements';
+import {DiagramModel} from '../diagram/model';
+import { Link, FatLinkType } from '../diagram/elements';
 import { DiagramView, DiagramViewOptions } from '../diagram/view';
 import {
     forceLayout, removeOverlaps, padded, translateToPositiveQuadrant,
