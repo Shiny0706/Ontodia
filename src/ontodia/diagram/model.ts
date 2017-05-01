@@ -190,6 +190,7 @@ export class DiagramModel extends Backbone.Model {
             //run query against database to generate class tree and link types
             this.dataProvider.classTree(),
             this.dataProvider.linkTypes(),
+            this.dataProvider.conceptTree(),
             this.dataProvider.propertyCountOfClasses(),
         ]).then(([[classTree, root], linkTypes, propertyCount]) => {
             this.setClassTree(classTree);
@@ -279,7 +280,7 @@ export class DiagramModel extends Backbone.Model {
 
         this.rootConcept = this.conceptsById[root.id];
         let path: ConceptModel[] = [];
-        this.calcAllPaths(this.rootConcept, path);
+        this.paths = this.calcAllPaths(this.rootConcept, path);
     }
 
     private static getConceptModel(cl: ClassTreeElement) : ConceptModel{
@@ -418,6 +419,10 @@ export class DiagramModel extends Backbone.Model {
         }
     }
 
+    public getKeyConcepts(): ConceptModel[] {
+        return this.keyConcepts;
+    }
+
     createElement(idOrModel: string | ElementModel): Element {
         const id = typeof idOrModel === 'string' ? idOrModel : idOrModel.id;
         const existing = this.getElement(id);
@@ -516,13 +521,11 @@ export class DiagramModel extends Backbone.Model {
                             node.subKeyConcepts.push(indirectSubConcept);
                             nextLevelNodes.push(indirectSubConcept);
                             let link = {
-                                linkTypeId: 'http://www.w3.org/2000/01/rdf-schema#subClassOf',
+                                linkTypeId: 'http://www.w3.org/2000/01/rdf-schema#indirectSubClassOf',
                                 sourceId: indirectSubConcept.id,
                                 targetId: node.id
                             };
                             links.push(link);
-                            console.log('add an indirect link');
-                            console.log(link);
                         }
                     }
                 });
@@ -605,8 +608,6 @@ export class DiagramModel extends Backbone.Model {
                         bestConceptSet = newConceptSet;
                         console.log('breaking');
                     }
-
-
                 }
                 console.log('looping...' + counter);
             }
@@ -745,7 +746,7 @@ export class DiagramModel extends Backbone.Model {
         let max: number = 0;
         each(this.paths, path => {
             // Length of path should >= 3
-            if(path.length > 3) {
+            if(path.length >= 3) {
                 for(let i = 1; i <path.length -1; ++i) {
                     let basicLevel = path[i].basicLevel + 1;
                     path[i].basicLevel = basicLevel;
@@ -755,7 +756,6 @@ export class DiagramModel extends Backbone.Model {
                 }
             }
         });
-
         // Normalize basic level of each concepts
         each(this.concepts, concept => {
             concept.basicLevel = concept.basicLevel/max;
@@ -892,6 +892,33 @@ export class DiagramModel extends Backbone.Model {
         return parent;
     }
 
+    public unShowConcepts() {
+        each(this.concepts, concept =>  {
+            concept.presentOnDiagram = false;
+        });
+    }
+
+    public getIsAPath(sourceId: string, targetId: string) {
+        let result: ConceptModel[] = [];
+        let conceptId = sourceId;
+        let loop: boolean = true;
+        while (loop) {
+            let concept = this.conceptsById[conceptId];
+            if(concept) {
+                result.push(concept);
+                if(conceptId === targetId) {
+                    loop = false;
+                }
+                else {
+                    conceptId = concept.parent;
+                }
+            } else {
+                loop = false;
+            }
+        }
+        return result;
+    }
+
     /**
      * This method serves in visualizing ontology cognitive-information space
      */
@@ -991,7 +1018,9 @@ export class DiagramModel extends Backbone.Model {
     private onLinkInfoLoaded(links: LinkModel[]) {
         this.initBatchCommand();
         for (const linkModel of links) {
-            this.createLink(linkModel);
+            if(linkModel.linkTypeId !== "http://www.w3.org/2002/07/owl#disjointWith") {
+                this.createLink(linkModel);
+            }
         }
         this.trigger('state:linksInfoCreated');
         this.storeBatchCommand();

@@ -8,6 +8,16 @@
   box-shadow: 0px 4px 15px 0px rgba(0, 0, 0, 0.38);
 }
 
+.ontodia-is-a-path-menu {
+  position: absolute;
+  width: 300px;
+  height: 150px;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0px 4px 15px 0px rgba(0, 0, 0, 0.38);
+}
+
 .ontodia-connections-menu_bread-crumbs {
   padding: 10px;
   padding-bottom: 0px;
@@ -16,6 +26,16 @@
   height: 27px;
   min-height: 27px;
   flex-grow: 0;
+}
+
+.ontodia-is-a-path-menu__title-label {
+  position: absolute;
+  top: -11px;
+  left: 10px;
+  background: white;
+  padding-left: 3px;
+  padding-right: 3px;
+  border-radius: 6px;
 }
 
 .ontodia-connections-menu__title-label {

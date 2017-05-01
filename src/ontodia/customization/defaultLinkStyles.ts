@@ -13,9 +13,8 @@ const LINK_SUB_CLASS_OF: LinkStyle = {
 
 const LINK_INDIRECT_SUB_CLASS_OF: LinkStyle = {
     connection: {
+        'stroke-dasharray': '10,10',
         stroke: '#f8a485',
-        'stroke-width': 2,
-        'stroke-width': '5 3'
     },
     markerTarget: {
         fill: '#f8a485',
@@ -60,6 +59,8 @@ export const DefaultLinkStyleBundle: LinkStyleResolver[] = [
     type => {
         if (type === 'http://www.w3.org/2000/01/rdf-schema#subClassOf') {
             return LINK_SUB_CLASS_OF;
+        } else if (type === 'http://www.w3.org/2000/01/rdf-schema#indirectSubClassOf') {
+            return LINK_INDIRECT_SUB_CLASS_OF;
         } else if (type === 'http://www.w3.org/2000/01/rdf-schema#domain') {
             return LINK_DOMAIN;
         } else if (type === 'http://www.w3.org/2000/01/rdf-schema#range') {
