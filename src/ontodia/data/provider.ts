@@ -1,11 +1,9 @@
 import {
-    Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel, PropertyCount,
+    Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel, PropertyCount, ConceptModel
 } from './model';
 
 export interface DataProvider {
     classTree(): Promise<ClassModel[]>;
-
-    conceptTree(): Promise<ClassModel[]>;
 
     classInfo(params: {
         classIds: string[];
@@ -32,6 +30,11 @@ export interface DataProvider {
 
     propertyCountOfClasses(): Promise<PropertyCount[]>;
 
+    propertyCountOfIndividuals(classId: string): Promise<PropertyCount[]>;
+
+    instanceConceptsTree(classId: string, classifierIds: string[]): Promise<ConceptModel[]>;
+
+    reverseInstanceConceptsTree(classId: string, classifierIds: string[]): Promise<ConceptModel[]>
 }
 
 export default DataProvider;

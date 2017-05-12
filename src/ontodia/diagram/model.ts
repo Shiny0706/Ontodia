@@ -3,7 +3,8 @@ import { each, size, values, keyBy, defaults, clone, sortBy, take, filter, diffe
 import * as joint from 'jointjs';
 
 import {
-    Dictionary, LocalizedString, LinkType, ClassModel, ElementModel, LinkModel, PropertyCount, ConceptModel,
+    Dictionary, LocalizedString, LinkType, ClassModel, ElementModel, LinkModel, PropertyCount,
+    ConceptModel,
 } from '../data/model';
 import { DataProvider } from '../data/provider';
 
@@ -46,16 +47,16 @@ export class DiagramModel extends Backbone.Model {
     dataProvider: DataProvider;
 
     classTree: ClassTreeElement[];
-    conceptTree: ClassTreeElement[];
+    private activeConceptTree: ConceptModel;
 
-    private rootConcept: ConceptModel;
+    private classConceptTree: ConceptModel;
+    private instanceConceptTree: ConceptModel;
 
     private classesById: Dictionary<FatClassModel> = {};
 
     private conceptsById: Dictionary<ConceptModel> = {};
     private concepts: ConceptModel[] = [];
     private paths: ConceptModel[][];
-    private maxLevel: number;
     private propertyLabelById: Dictionary<RichProperty> = {};
 
     private nextLinkTypeIndex = 0;
@@ -147,7 +148,6 @@ export class DiagramModel extends Backbone.Model {
         });
     }
 
-    //this function has never been called
     createNewDiagram(dataProvider: DataProvider): Promise<void> {
         this.dataProvider = dataProvider;
         this.trigger('state:beginLoad');
@@ -186,15 +186,14 @@ export class DiagramModel extends Backbone.Model {
         this.dataProvider = params.dataProvider;
         this.trigger('state:beginLoad');
 
-        return Promise.all<ClassModel[], LinkType[], PropertyCount[]>([
-            //run query against database to generate class tree and link types
+        return Promise.all<[ClassModel[], ConceptModel], LinkType[], PropertyCount[]>([
             this.dataProvider.classTree(),
             this.dataProvider.linkTypes(),
-            this.dataProvider.conceptTree(),
             this.dataProvider.propertyCountOfClasses(),
-        ]).then(([[classTree, root], linkTypes, propertyCount]) => {
+        ]).then(([[classTree, rootConcept], linkTypes, propertyCount]) => {
             this.setClassTree(classTree);
-            this.setConceptTree(root, propertyCount);
+            this.classConceptTree = rootConcept;
+            this.setConceptTree(rootConcept, propertyCount);
             this.initLinkTypes(linkTypes);
             this.trigger('state:endLoad', size(params.preloadedElements));
             this.initLinkSettings(params.linkSettings);
@@ -225,98 +224,74 @@ export class DiagramModel extends Backbone.Model {
         return {layoutData, linkSettings};
     }
 
-    setConceptTree(root: ClassModel, propertyCount: PropertyCount[]) {
-        this.conceptTree = root;
-        const addConcept = (cl: ClassTreeElement, level: number) => {
-            let conceptModel = DiagramModel.getConceptModel(cl);
-            conceptModel.level = level;
+    private directLinkIds: string[];
+    private reverseLinkIds: string[];
 
-            this.concepts.push(conceptModel);
+    setClassifierLinks(directLinkIds: string[], reverseLinkIds: string[]) {
+        this.directLinkIds = directLinkIds;
+        this.reverseLinkIds = reverseLinkIds;
+    }
 
-            this.conceptsById[cl.id] = conceptModel;
+    resetActiveConceptsTree() {
+        this.activeConceptTree = this.classConceptTree;
+        this.resetConceptList();
+        let path: ConceptModel[] = [];
+        this.paths = this.calcAllPaths(this.activeConceptTree, path);
+    }
 
-            if(level > this.maxLevel) {
-                this.maxLevel = level;
-            }
+    setConceptTree(rootConcept: ConceptModel, propertyCount: PropertyCount[]) {
+        this.activeConceptTree = rootConcept;
 
-            if(cl.children.length > 0) {
-                let childLevel = level + 1;
-                each(cl.children, (el) => {
-                    addConcept(el, childLevel);
-                    let addedSubConcept: ConceptModel = this.conceptsById[el.id];
-                    conceptModel.directSubConcepts.push(addedSubConcept);
-                    conceptModel.allSubConcepts.push(addedSubConcept);
-                    each(addedSubConcept.allSubConcepts, childOfChild => {
-                        conceptModel.allSubConcepts.push(childOfChild);
-                        conceptModel.indirectSubConcepts.push(childOfChild);
-                    });
-                });
-            }
-        };
+        // Reset concept list and concept dictionary
+        this.resetConceptList();
 
-        addConcept(root, 1);
-
-        let addSuperConcepts = (concept: ConceptModel)  => {
-            let superConceptId = concept.parent;
-            while(superConceptId) {
-                let superConcept = this.conceptsById[superConceptId];
-                concept.allSuperConcepts.push(superConcept);
-                superConceptId = superConcept.parent;
-            }
-        };
-
-        // Add super concept for addedSubConcept then update covered
-        // This won't take into account situation when concept has more than one super concepts
-        each(this.concepts, concept => {
-            addSuperConcepts(concept);
-            concept.covered = union(concept.allSuperConcepts, concept.allSubConcepts, [concept]);
-        });
-
+        // Update property count of concepts
         each(propertyCount, (item) =>  {
             if(this.conceptsById[item.id]) {
                 this.conceptsById[item.id].propertyCount = item.count;
             }
         });
 
-        this.rootConcept = this.conceptsById[root.id];
+
         let path: ConceptModel[] = [];
-        this.paths = this.calcAllPaths(this.rootConcept, path);
+        this.paths = this.calcAllPaths(this.activeConceptTree, path);
     }
 
-    private static getConceptModel(cl: ClassTreeElement) : ConceptModel{
-        return {
-            id: cl.id,
-            children: cl.children,
-            label: cl.label,
-            count: cl.count,
-            parent: cl.parent,
-            aGlobalDensity: 0,
-            globalDensity: 0,
-            localDensity: 0,
-            density: 0,
-            contribution: 0,
-            nameSimplicity: 0,
-            basicLevel: 0,
-            ncValue: 0,
-            propertyCount: 0,
-            score: 0,
-            overallScore: 0,
-            covered: [],
-            allSuperConcepts: [],
-            allSubConcepts: [],
-            directSubConcepts: [],
-            indirectSubConcepts: [],
-            subKeyConcepts: [],
-            presentOnDiagram: false,
+    private resetConceptList () {
+        this.conceptsById = {};
+        this.concepts = [];
+
+        let addConcept = (concept) => {
+            this.conceptsById[concept.id] = concept;
+            this.concepts.push(concept);
+            each(concept.children, child => {
+                addConcept(child);
+            });
         };
+
+        // Reset concept list and concept dictionary
+        addConcept(this.activeConceptTree);
     }
 
-    /**
-     * Get concepts (classes or instances of class Concept
-     * @returns {ConceptModel[]}
-     */
-    getConcepts(): ConceptModel[] {
-        return this.concepts;
+    private calcAllPaths(start: ConceptModel, path: ConceptModel[]): ConceptModel[][] {
+        let result: ConceptModel[][] = [];
+        if(path.indexOf(start) < 0) {
+            let currentPath: ConceptModel[] = clone(path);
+            currentPath.push(start);
+
+            let subConcepts: ConceptModel[] = start.children;
+            if(subConcepts.length == 0) {
+                result.push(currentPath);
+            } else {
+                each(subConcepts, subConcept => {
+                    let subResults: ConceptModel[][] = this.calcAllPaths(subConcept, clone(currentPath));
+                    each(subResults, subResult => {
+                        result.push(subResult);
+                    });
+                });
+            }
+        }
+        return result;
     }
 
     private setClassTree(rootClasses: ClassModel[]) {
@@ -476,7 +451,7 @@ export class DiagramModel extends Backbone.Model {
      * Create virtual links among key concepts, include direct and indirect links rdfs:SubClassOf
      */
     public createVirtualLinksBetweenKeyConcepts() {
-        let root = this.rootConcept;
+        let root = this.activeConceptTree;
         let kcMap:Dictionary<ConceptModel> = {};
         each(this.keyConcepts, concept => {
             kcMap[concept.id] = concept;
@@ -492,7 +467,7 @@ export class DiagramModel extends Backbone.Model {
             ++level;
             let nextLevelNodes: ConceptModel[] = [];
             each(currentLevelNodes, node => {
-                each(node.directSubConcepts, subConcept =>  {
+                each(node.children, subConcept =>  {
                     if(kcMap[subConcept.id]) {
                         // add direct is-a link then remove subConcept from kcMap
                         node.subKeyConcepts.push(subConcept);
@@ -628,9 +603,9 @@ export class DiagramModel extends Backbone.Model {
         return take(unShownConcepts, this.LOAD_AMOUNT);
     }
 
-    private findConceptWithWorstOverallScore(concepts: ConceptModel[]): Concept {
+    private findConceptWithWorstOverallScore(concepts: ConceptModel[]): ConceptModel {
         let worstOverallScore = 2; // The overall score value never exceed 2
-        let result: Concept = undefined;
+        let result: ConceptModel = undefined;
         each(concepts, concept => {
             if(concept.overallScore < worstOverallScore) {
                 worstOverallScore = concept.overallScore;
@@ -666,7 +641,6 @@ export class DiagramModel extends Backbone.Model {
         return sumContribution/concepts.length;
     }
 
-
     /**
      * Calculate size of result when subtract 2 set
      * @param firstSet
@@ -694,9 +668,9 @@ export class DiagramModel extends Backbone.Model {
         let sumOverallScore = 0;
         let maxContribution = this.findMaxContribution(concepts);
 
-
         each(concepts, concept =>  {
-            let overallScore = this.WEIGHT_CO * concept.contribution/maxContribution + this.WEIGHT_CR * concept.score;
+            let overallScore = this.WEIGHT_CO * concept.contribution/maxContribution
+                + this.WEIGHT_CR * concept.score;
             concept.overallScore = overallScore;
             sumOverallScore += overallScore;
         });
@@ -762,27 +736,6 @@ export class DiagramModel extends Backbone.Model {
         });
     }
 
-    private calcAllPaths(start: ConceptModel, path: ConceptModel[]): ConceptModel[][] {
-        let result: ConceptModel[][] = [];
-        if(path.indexOf(start) < 0) {
-            let currentPath: ConceptModel[] = clone(path);
-            currentPath.push(start);
-
-            let subConcepts: ConceptModel[] = start.directSubConcepts;
-            if(subConcepts.length == 0) {
-                result.push(currentPath);
-            } else {
-                each(subConcepts, subConcept => {
-                    let subResults: ConceptModel[][] = this.calcAllPaths(subConcept, clone(currentPath));
-                    each(subResults, subResult => {
-                        result.push(subResult);
-                    });
-                });
-            }
-        }
-        return result;
-    }
-
     /**
      * Calculate natural category value of all classes
      */
@@ -790,9 +743,8 @@ export class DiagramModel extends Backbone.Model {
         this.calcNameSimplicityOfConcepts();
         this.calcBasicLevelOfConcepts();
         each(this.concepts, concept => {
-            let ncValue = this.WEIGHT_BASIC_LEVEL * concept.basicLevel;
+            concept.ncValue = this.WEIGHT_BASIC_LEVEL * concept.basicLevel
                 + this.WEIGHT_NAME_SIMPLICITY * concept.nameSimplicity;
-            concept.ncValue = ncValue;
         });
     }
 
@@ -832,12 +784,14 @@ export class DiagramModel extends Backbone.Model {
         let maxWeightedGlobalDensity = 0;
         let nearestConcepts = this.getNearestConceptsKLevel(2, concept);
         each(nearestConcepts, nearestConcept =>  {
-            let weightedGlobalDensity = (1 - (this.RATIO_DISTANCE * Math.abs(concept.level - nearestConcept.level))) * nearestConcept.globalDensity;
+            let weightedGlobalDensity = (1 - (this.RATIO_DISTANCE * Math.abs(concept.level - nearestConcept.level)))
+                * nearestConcept.globalDensity;
             if(weightedGlobalDensity > maxWeightedGlobalDensity) {
                 maxWeightedGlobalDensity = weightedGlobalDensity;
             }
         });
-        concept.localDensity = concept.globalDensity/maxWeightedGlobalDensity + this.WEIGHT_GDL * concept.globalDensity;
+        concept.localDensity = concept.globalDensity/maxWeightedGlobalDensity
+            + this.WEIGHT_GDL * concept.globalDensity;
     }
 
     /**
@@ -850,46 +804,36 @@ export class DiagramModel extends Backbone.Model {
     private getNearestConceptsKLevel(k: number, concept: ConceptModel) : ConceptModel[]{
         let nearestClasses: ConceptModel[] = [];
         nearestClasses.push(concept);
-        let current:ConceptModel = concept;
-        for( let i = 0; i < k; ++i) {
-            let parent = this.getParent(current);
-            if(parent) {
-                nearestClasses.push(parent);
-                current = parent;
-            }
-        }
 
-        let addSubConceptsKLevel = (superLevel: number, concept: ConceptModel, k: number ) : ConceptModel[] => {
+        let addSubConceptsKLevel = (initLevel: number, concept: ConceptModel, k: number) : ConceptModel[] => {
             let result:ConceptModel[] = [];
-            if(concept.level  + 1 - superLevel <= k) {
-                each(concept.directSubConcepts, subConcept =>  {
+            if(concept.level  + 1 - initLevel <= k) {
+                each(concept.children, subConcept =>  {
                     result.push(subConcept);
-                    let subResult: ConceptModel[] = addSubConceptsKLevel(superLevel, subConcept, k);
+                    let subResult: ConceptModel[] = addSubConceptsKLevel(initLevel, subConcept, k);
                     result = union(result, subResult);
                 });
             }
             return result;
-        }
+        };
+
+        let addSuperConceptsKLevel = (initLevel: number, concept: ConceptModel, k: number): ConceptModel[] => {
+            let  result: ConceptModel[] = [];
+            if(initLevel - concept.level < k) {
+                each(concept.parent, superConcept => {
+                    result.push(superConcept);
+                    let superResult: ConceptModel[] = addSuperConceptsKLevel(initLevel, superConcept, k);
+                    result = union(result, superResult);
+                });
+            }
+            return result;
+        };
 
         let subConceptsKLevel:ConceptModel[] = addSubConceptsKLevel(concept.level, concept, k);
-        nearestClasses = union(nearestClasses, subConceptsKLevel);
+        let superConceptsKLevel: ConceptModel[] = addSuperConceptsKLevel(concept.level, concept, k);
+        nearestClasses = union(nearestClasses, subConceptsKLevel, superConceptsKLevel);
 
         return nearestClasses;
-    }
-
-    /**
-     * Get superclass of given class
-     *
-     * @param concept
-     * @returns {ConceptModel}
-     */
-    private getParent(concept: ConceptModel): ConceptModel {
-        let parentId = concept.parent;
-        let parent: ConceptModel = undefined;
-        if(parentId) {
-            parent = this.conceptsById[parentId];
-        }
-        return parent;
     }
 
     public unShowConcepts() {
@@ -898,6 +842,13 @@ export class DiagramModel extends Backbone.Model {
         });
     }
 
+    // TODO: use dijkstra algorithm here to find path
+    /**
+     * Get path from one concept to its super concept
+     * @param sourceId - child concept
+     * @param targetId - super concept
+     * @returns {ConceptModel[]}
+     */
     public getIsAPath(sourceId: string, targetId: string) {
         let result: ConceptModel[] = [];
         let conceptId = sourceId;
@@ -917,6 +868,14 @@ export class DiagramModel extends Backbone.Model {
             }
         }
         return result;
+    }
+
+    public getSubConceptInfo(id: string): string {
+        let concept: ConceptModel = this.conceptsById[id];
+        if(concept) {
+            return '(' + concept.children.length + ',' + concept.indirectSubConcepts.length + ')';
+        }
+        return '';
     }
 
     /**
@@ -1088,15 +1047,6 @@ export class DiagramModel extends Backbone.Model {
         const linksOfType = this.linksByType[linkModel.linkTypeId];
         removeLinkFrom(linksOfType, linkModel);
     }
-
-    public getSubClassInfo(id: string): string {
-        let concept: ConceptModel = this.conceptsById[id];
-        if(concept) {
-
-            return '(' + concept.directSubConcepts.length + ',' + concept.indirectSubConcepts.length + ')';
-        }
-        return '';
-    }
 }
 
 export default DiagramModel;
@@ -1114,11 +1064,6 @@ export interface LinkTypeOptions {
     id: string;
     visible: boolean;
     showLabel?: boolean;
-}
-
-interface AvgAndMaxContribution {
-    avgContribution: number;
-    maxContribution: number;
 }
 
 function placeholderTemplateFromIri(iri: string): ElementModel {

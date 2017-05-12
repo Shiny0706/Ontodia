@@ -1,0 +1,62 @@
+.kce-classifier-selection {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-top: -200px;
+  margin-left: -300px;
+  width: 500px;
+  height: 300px;
+  box-shadow: 0px 4px 15px 0px rgba(0, 0, 0, 0.38);
+  border: 1px solid black;
+  flex: auto;
+  display: flex;
+  flex-direction: column;
+
+  &__title-label {
+    position: absolute;
+    top: -11px;
+    left: 10px;
+    background: white;
+    padding-left: 3px;
+    padding-right: 3px;
+    border-radius: 6px;
+  }
+
+  &__btn-save {
+    height: 30px;
+    padding-top: 1px;
+    margin-bottom: 6px !important;
+    margin-right:6px;
+  }
+
+  &__links-panels {
+    display: flex;
+    flex: auto;
+    margin: 25px 5px 5px 5px;
+    border-radius: 3px;
+    flex-direction: row;
+
+    &__all-links {
+      width: 50%;
+      border-radius: 3px;
+      border: 1px solid black;
+    }
+
+    &__selected {
+      width: 50%;
+      margin-left: 10px;
+      &__direct-links {
+        height: 45%;
+        border-radius: 3px;
+        border: 1px solid black;
+      }
+      &__reverse-links {
+        height: 45%;
+        border-radius: 3px;
+        border: 1px solid black;
+        margin-top: 10%;
+      }
+    }
+  }
+}
+

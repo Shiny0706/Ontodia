@@ -20,9 +20,9 @@ export interface Props {
     isEmbeddedMode?: boolean;
     isDiagramSaved?: boolean;
     isIntegratingMode?: boolean;
-    onChangeDrawingMode?:(drawingMode: string) => void;
     onVisualizeWithKCE?: (conceptCount: number) => void;
     onClearPaper: void;
+    onChangeRegime: (regime: string) => void;
 }
 
 export interface State {
@@ -44,6 +44,11 @@ export class EditorToolbar extends React.Component<Props, State> {
         this.props.onChangeLanguage(value);
     };
 
+    private onChangeRegime = (event: React.SyntheticEvent<HTMLSelectElement>) => {
+        const value = event.currentTarget.value;
+        this.props.onChangeRegime(value);
+    };
+
     private onExportSVG = () => {
         this.props.onExportSVG(this.downloadImageLink);
     };
@@ -51,11 +56,6 @@ export class EditorToolbar extends React.Component<Props, State> {
     private onExportPNG = () => {
         this.props.onExportPNG(this.downloadImageLink);
     };
-
-    private onChangeDrawingMode = (event: React.SyntheticEvent<HTMLSelectElement>) => {
-        const value = event.currentTarget.value;
-        this.props.onChangeDrawingMode(value);
-    }
 
     private onVisualizeWithKCE = () => {
         this.props.onVisualizeWithKCE(this.state.conceptCount);
@@ -179,6 +179,13 @@ export class EditorToolbar extends React.Component<Props, State> {
                         <select defaultValue='en' onChange={this.onChangeLanguage}>
                             <option value='en'>English</option>
                             <option value='ru'>Russian</option>
+                        </select>
+                    </span>
+                    <span className={`btn-group ${CLASS_NAME}__regime-selector`}>
+                        {nonEmbedded ? <label><span>Regime</span></label> : undefined}
+                        <select defaultValue='class' onChange={this.onChangeRegime}>
+                            <option value='class'>Extract classes</option>
+                            <option value='individual'>Extract individuals</option>
                         </select>
                     </span>
                 </div>
