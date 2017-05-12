@@ -138,18 +138,6 @@ export class DiagramView extends Backbone.Model {
         this.model.unShowConcepts();
     }
 
-    visualizeCognitiveInformationSpace(drawingMode: string) {
-        this.model.graph.clear();
-        this.trigger('state:graphCleared');
-        if(drawingMode === "withRepresentation") {
-            this.visualizeCISWithRepresentationMode();
-        }else if(drawingMode === 'withAssociates') {
-            this.visualizeCISWithAssociationMode();
-        } else if(drawingMode === 'visualizeKeyConcepts') {
-            this.visualizeKeyConcepts();
-        }
-    }
-
     visualizeKeyConcepts(conceptCount: number) {
 
         this.model.graph.clear();
@@ -179,99 +167,6 @@ export class DiagramView extends Backbone.Model {
         this.model.requestLinksOfType();
         this.selection.reset(elementsToSelect);
         this.model.storeBatchCommand();
-    }
-
-    visualizeCISWithRepresentationMode (){
-        let filteredClasses = filter(this.model.classTree, clazz => {
-            return clazz.id === CONCEPT_URI
-                    || clazz.id === INFORMATION_RESOURCE_URI
-                    || clazz.id === CONCEPT_REPRESENTATION_URI;
-        });
-
-        const requests: Promise<Dictionary<ElementModel>>[] = [];
-        for (let i = 0 ; i < filteredClasses.length; ++i) {
-            // TODO: Correct value of limit
-            let request = createRequest({
-                elementTypeId: filteredClasses[i].id,
-                limit: 1000
-            }, this.getLanguage());
-
-            requests.push(this.model.dataProvider.filter(request));
-        }
-
-        Promise.all(requests).then(results => {
-            this.model.initBatchCommand();
-            let elementsToSelect: Element[] = [];
-
-            let totalXOffset = 0;
-            let x = 300, y = 300;
-            let counter = 1;
-            each(results, subElements => {
-                each(subElements, el => {
-                    const element = this.createElementAt(el.id, {x: x, y: y, center:false});
-                    x += element.get('size').width;
-                    // Fixed max width of rows: 800
-                    if(x >800) {
-                        totalXOffset = 0;
-                        x = 300;
-                        y += element.get('size').height + 50;
-                    }
-                    elementsToSelect.push(element);
-                    counter++;
-                });
-            });
-            this.model.requestElementData(elementsToSelect);
-            this.model.requestLinksOfType();
-            this.selection.reset(elementsToSelect);
-
-            this.model.storeBatchCommand();
-        });
-    }
-
-    visualizeCISWithAssociationMode() {
-
-        let filteredClasses = filter(this.model.classTree, clazz => {
-            return clazz.id === CONCEPT_URI
-                || clazz.id === INFORMATION_RESOURCE_URI;
-        });
-        const requests: Promise<Dictionary<ElementModel>>[] = [];
-        for (let i = 0 ; i < filteredClasses.length; ++i) {
-            // TODO: Correct value of limit
-            let request = createRequest({
-                elementTypeId: filteredClasses[i].id,
-                limit: 1000
-            }, this.getLanguage());
-
-            requests.push(this.model.dataProvider.filter(request));
-        }
-
-        Promise.all(requests).then(results => {
-            this.model.initBatchCommand();
-            let elementsToSelect: Element[] = [];
-
-            let totalXOffset = 0;
-            let x = 300, y = 300;
-            let counter = 1;
-            each(results, subElements => {
-                each(subElements, el => {
-                    const element = this.createElementAt(el.id, {x: x, y: y, center:false});
-                    x += element.get('size').width;
-                    // Fixed number of element in a row: 5 elements
-                    if(x >800) {
-                        totalXOffset = 0;
-                        x = 300;
-                        y += element.get('size').height + 50;
-                    }
-                    elementsToSelect.push(element);
-                    counter++;
-                });
-            });
-            this.model.requestElementData(elementsToSelect);
-            this.model.requestVirtualLinksBetweenConceptsAndResources();
-            this.selection.reset(elementsToSelect);
-
-            this.model.storeBatchCommand();
-        });
     }
 
     setRegime(regime: string) {

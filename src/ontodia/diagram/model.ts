@@ -878,17 +878,6 @@ export class DiagramModel extends Backbone.Model {
         return '';
     }
 
-    /**
-     * This method serves in visualizing ontology cognitive-information space
-     */
-    requestVirtualLinksBetweenConceptsAndResources() {
-        let endpoint = Config.HOSTNAME + ':' + Config.PORT +'/' + Config.DB + '/query';
-        getConceptAndConceptRepresentationOfResource(endpoint)
-            .then(links => {
-                this.onLinkInfoLoaded(links);
-            });
-    }
-
     getPropertyById(labelId: string): RichProperty {
         if (!this.propertyLabelById[labelId]) {
             this.propertyLabelById[labelId] = new RichProperty({
