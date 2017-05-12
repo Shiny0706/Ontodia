@@ -1,29 +1,38 @@
 import {each} from 'lodash';
 import {
     RdfLiteral, SparqlResponse, ClassBinding, ElementBinding, LinkBinding,
-    ElementImageBinding, LinkTypeBinding, LinkTypeInfoBinding, PropertyBinding,
+    ElementImageBinding, LinkTypeBinding, LinkTypeInfoBinding, PropertyBinding, ConceptBinding,
 } from './sparqlModels';
 import {
-    Dictionary, LocalizedString, LinkType, ClassModel, ElementModel, LinkModel, Property, PropertyModel, LinkCount, PropertyCount
+    Dictionary, LocalizedString, LinkType, ClassModel, ElementModel, LinkModel, Property, PropertyModel, ConceptModel, PropertyCount
 } from '../model';
+import union = require("lodash/union");
 
 const THING_URI = 'http://www.w3.org/2002/07/owl#Thing';
 const LABEL_URI = 'http://www.w3.org/2000/01/rdf-schema#label';
 const NAME_INDIVIDUAL_URI = "http://www.w3.org/2002/07/owl#NamedIndividual";
 const CLASS_URI = "http://www.w3.org/2002/07/owl#Class";
-const DATATYPE_PROPERTY_URI = "http://www.w3.org/2002/07/owl#DatatypeProperty";
+const DATA_TYPE_PROPERTY_URI = "http://www.w3.org/2002/07/owl#DatatypeProperty";
 const FUNCTIONAL_PROPERTY_URI = "http://www.w3.org/2002/07/owl#FunctionalProperty";
 const OBJECT_PROPERTY_URI = "http://www.w3.org/2002/07/owl#ObjectProperty";
 const TRANSITIVE_PROPERTY_URI = "http://www.w3.org/2002/07/owl#TransitiveProperty";
 const SYMMETRIC_PROPERTY_URI = "http://www.w3.org/2002/07/owl#SymmetricProperty";
+const ANNOTATION_PROPERTY_URI = "http://www.w3.org/2002/07/owl#AnnotationProperty";
+const DISJOINT_CLASSES_URI = "http://www.w3.org/2002/07/owl#DisjointClasses";
+const ALL_DIFFERENT_URI = "http://www.w3.org/2002/07/owl#AllDifferent";
+const RESTRICTION_URI = "http://www.w3.org/2002/07/owl#Ontology";
 const ONTOLOGY_URI = "http://www.w3.org/2002/07/owl#Ontology";
 
-export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassModel[], ClassModel] {
+const PRIMITIVE_TYPE = [THING_URI, LABEL_URI, NAME_INDIVIDUAL_URI, CLASS_URI,
+    DATA_TYPE_PROPERTY_URI, FUNCTIONAL_PROPERTY_URI, OBJECT_PROPERTY_URI,
+    TRANSITIVE_PROPERTY_URI, SYMMETRIC_PROPERTY_URI, ANNOTATION_PROPERTY_URI,
+    DISJOINT_CLASSES_URI, ALL_DIFFERENT_URI, ONTOLOGY_URI, RESTRICTION_URI];
+
+export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassModel[], ConceptModel] {
     const sNodes = response.results.bindings;
     const tree: ClassModel[] = [];
     const createdTreeNodes: Dictionary<ClassModel> = {};
     const tempNodes: Dictionary<ClassModel> = {};
-    const pureClassTree: ClassModel[] = [];
 
     for (const sNode of sNodes) {
         const sNodeId: string = sNode.class.value;
@@ -42,6 +51,7 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassMode
             let newNode = getClassModel(sNode);
             createdTreeNodes[sNodeId] = newNode;
             if (sNode.parent) {
+                // Put parent to tempNodes if it doesn't present in tempNodes
                 newNode.parent = sNode.parent.value;
 
                 const sParentNodeId: string = sNode.parent.value;
@@ -69,12 +79,9 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassMode
                     newNode.count += tempNodes[sNodeId].count;
                     newNode.children = tempNodes[sNodeId].children;
                 }
-                if(notOntologyPrimitiveType(newNode.id)) {
-                    pureClassTree.push(newNode);
-                }
             }
         }
-    };
+    }
 
     each(tempNodes, tempNode => {
         let createdNode = createdTreeNodes[tempNode.id];
@@ -83,6 +90,13 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassMode
                 createdNode.children.push(childOfTemp);
             }
         });
+    });
+
+    let pureClassTree: ClassModel[] = [];
+    each(tree, classModel => {
+        if(PRIMITIVE_TYPE.indexOf(classModel.id) < 0) {
+            pureClassTree.push(classModel);
+        }
     });
 
     let thingNode = createdTreeNodes[THING_URI];
@@ -96,32 +110,249 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassMode
         tree.push(thingNode);
     }
 
+    let rootClass: ClassModel;
     if(pureClassTree.length > 1) {
-        let childrenOfThing = [];
-
         pureClassTree.forEach(function(element) {
             element.parent = THING_URI;
-            childrenOfThing.push(element);
+            thingNode.children.push(element);
         });
-        thingNode.children = childrenOfThing;
-        return [tree, thingNode];
+        rootClass = thingNode;
+    } else {
+        rootClass = pureClassTree[0];
     }
 
-    return [tree, pureClassTree[0]];
+    let rootConcept: ConceptModel = getConceptTree(rootClass);
+
+    updateConceptTree(rootConcept);
+
+    return [tree, rootConcept];
+}
+/**
+ * Build concept tree from class tree
+ * @param rootClass
+ * @returns {ConceptModel} - root concept
+ */
+function getConceptTree(rootClass: ClassModel): ConceptModel {
+    // Create root concept
+    let rootConcept: ConceptModel = getConceptFromClassModel(rootClass);
+
+    let addConcept = (classModel: ClassModel, conceptModel: ConceptModel) => {
+        each(classModel.children, childClass => {
+            if(PRIMITIVE_TYPE.indexOf(childClass.id) < 0) {
+                let childConcept: ConceptModel = getConceptFromClassModel(childClass);
+                conceptModel.children.push(childConcept);
+                childConcept.parent.push(conceptModel);
+                addConcept(childClass, childConcept);
+            }
+        });
+    };
+
+    addConcept(rootClass, rootConcept);
+
+    return rootConcept;
 }
 
-function notOntologyPrimitiveType(id: String) {
-    let result =
-    id != THING_URI
-    && id != NAME_INDIVIDUAL_URI
-    && id != CLASS_URI
-    && id != NAME_INDIVIDUAL_URI
-    && id != DATATYPE_PROPERTY_URI
-    && id != FUNCTIONAL_PROPERTY_URI
-    && id != OBJECT_PROPERTY_URI
-    && id != TRANSITIVE_PROPERTY_URI
-    && id != SYMMETRIC_PROPERTY_URI
-    && id != ONTOLOGY_URI;
+/**
+ * Update created concept tree with adding covered, direct children, indirect children, super concepts ...
+ *
+ * @param rootConcept
+ */
+function updateConceptTree(rootConcept: ConceptModel) {
+    let conceptsById: Dictionary<ConceptModel> = {};
+    const addSubConcept = (concept: ConceptModel, level: number) => {
+        concept.level = level;
+
+        // Update dictionary conceptsById
+        conceptsById[concept.id] = concept;
+
+        concept.allSubConcepts = concept.allSubConcepts.concat(concept.children);
+
+        if(concept.children.length > 0) {
+            let childLevel = level + 1;
+            each(concept.children, child => {
+                addSubConcept(child, childLevel);
+                concept.allSubConcepts = concept.allSubConcepts.concat(child.allSubConcepts);
+                concept.indirectSubConcepts = concept.indirectSubConcepts.concat(child.allSubConcepts);
+            });
+        }
+    };
+
+    addSubConcept(rootConcept, 1);
+
+    let addSuperConcepts = (concept: ConceptModel)  => {
+        // Add super concepts
+        each(concept.parent, parent => {
+            concept.allSuperConcepts.push(parent);
+            concept.allSuperConcepts = concept.allSuperConcepts.concat(parent.allSuperConcepts);
+        });
+
+        // Update covered
+        concept.covered = union(concept.allSuperConcepts, concept.allSubConcepts, [concept]);
+
+        each(concept.children, child => {
+            addSuperConcepts(child);
+        });
+    };
+
+    // Add super concept each concept in tree, then update covered
+    // This will take into account situation when concept has more than one super concepts
+    addSuperConcepts(rootConcept);
+
+}
+
+function getConceptFromClassModel(classModel: ClassModel): ConceptModel {
+    let concept = {
+        id: classModel.id,
+        children: [],
+        label: classModel.label,
+        count: classModel.count,
+        parent: [],
+        aGlobalDensity: 0,
+        globalDensity: 0,
+        localDensity: 0,
+        density: 0,
+        contribution: 0,
+        nameSimplicity: 0,
+        basicLevel: 0,
+        ncValue: 0,
+        propertyCount: 0,
+        score: 0,
+        overallScore: 0,
+        covered: [],
+        allSuperConcepts: [],
+        allSubConcepts: [],
+        indirectSubConcepts: [],
+        subKeyConcepts: [],
+        presentOnDiagram: false,
+    };
+    return concept;
+}
+
+export function getInstanceConceptsTree(response: SparqlResponse<ConceptBinding>) : ConceptModel{
+    const sNodes = response.results.bindings;
+    const createdTreeNodes: Dictionary<ConceptModel> = {};
+
+    for (const sNode of sNodes) {
+        const sNodeId: string = sNode.concept.value;
+
+        if(!createdTreeNodes[sNodeId]) {
+            createdTreeNodes[sNodeId] = getConceptModel({id: sNode.concept.value, label: sNode.label});
+        }
+        if(sNode.parent) {
+            const parentNodeId: string = sNode.parent.value;
+            let parentNode: ConceptModel;
+            if(!createdTreeNodes[parentNodeId]) {
+                parentNode = getConceptModel({id: sNode.parent.value, label: sNode.parentLabel});
+                createdTreeNodes[parentNodeId] = parentNode;
+            } else {
+                parentNode = createdTreeNodes[parentNodeId];
+            }
+
+            parentNode.children.push(createdTreeNodes[sNodeId]);
+            createdTreeNodes[sNodeId].parent.push(parentNode);
+        }
+    };
+
+    let rootConcept = getRootOfConceptsTree(createdTreeNodes);
+
+    updateConceptTree(rootConcept);
+
+    return rootConcept;
+}
+
+export function getReverseInstanceConceptsTree(response: SparqlResponse<ConceptBinding>) : ConceptModel{
+    const sNodes = response.results.bindings;
+    const createdTreeNodes: Dictionary<ConceptModel> = {};
+
+    for (const sNode of sNodes) {
+        const sNodeId: string = sNode.concept.value;
+
+        // Add node to tree if node hasn't been added
+        if(!createdTreeNodes[sNodeId]) {
+            // Create new node
+            createdTreeNodes[sNodeId] = getConceptModel({id: sNode.concept.value, label: sNode.label});
+        }
+        if(sNode.child) {
+            const childNodeId: string = sNode.child.value;
+            let childNode: ConceptModel;
+            if(!createdTreeNodes[childNodeId]) {
+                childNode = getConceptModel({id: sNode.child.value, label: sNode.childLabel});
+                createdTreeNodes[childNodeId] = childNode;
+            } else {
+                childNode = createdTreeNodes[childNodeId];
+            }
+
+            childNode.parent.push(createdTreeNodes[sNodeId]);
+            createdTreeNodes[sNodeId].children.push(childNode);
+        }
+    };
+
+    let rootConcept = getRootOfConceptsTree(createdTreeNodes);
+
+    updateConceptTree(rootConcept);
+
+    return rootConcept;
+}
+/**
+ * Get root of concept tree from created tree nodes, or create one with uri = THING_URI if root does not exist
+ * @param createdTreeNodes
+ * @returns {ConceptModel}
+ */
+function getRootOfConceptsTree(createdTreeNodes: Dictionary<ConceptModel>) {
+    let conceptsTree: ConceptModel[] = [];
+    each(createdTreeNodes, node => {
+        if(node.parent.length == 0) {
+            conceptsTree.push(node);
+        }
+    });
+
+    if(conceptsTree.length > 1) {
+        let thingConcept = getConceptModel({id: THING_URI, label: undefined});
+        each(conceptsTree, concept => {
+            thingConcept.children.push(concept);
+            concept.parent.push(thingConcept);
+        });
+        conceptsTree = [thingConcept];
+    }
+
+    return conceptsTree[0];
+}
+
+/**
+ * Get concept model from id and label
+ * @param params
+ * @returns ConceptModel
+ * */
+function getConceptModel(params: {id: string, label: RdfLiteral}) : ConceptModel{
+    let values: LocalizedString[] = [];
+    if(params.label) {
+        values.push(getLocalizedString(params.label, params.id));
+    }
+    let result = {
+        id: params.id,
+        children: [],
+        label: {values: values},
+        count: 0,
+        parent: [],
+        aGlobalDensity: 0,
+        globalDensity: 0,
+        localDensity: 0,
+        density: 0,
+        contribution: 0,
+        nameSimplicity: 0,
+        basicLevel: 0,
+        ncValue: 0,
+        propertyCount: 0,
+        score: 0,
+        overallScore: 0,
+        covered: [],
+        allSuperConcepts: [],
+        allSubConcepts: [],
+        indirectSubConcepts: [],
+        subKeyConcepts: [],
+        presentOnDiagram: false,
+    }
+
     return result;
 }
 
@@ -256,34 +487,31 @@ export function getLinksInfo(response: SparqlResponse<LinkBinding>): LinkModel[]
 
 export function getLinksTypesOf(response: SparqlResponse<LinkTypeBinding>): LinkType[] {
     const sparqlLinkTypes = response.results.bindings;
+    // Check for owl:Thing as root of concept tree
+    if(sparqlLinkTypes.length == 1 && sparqlLinkTypes[0].instcount.value === "0" ) {
+        return [];
+    }
     return sparqlLinkTypes.map((sLink: LinkTypeBinding) => getLinkType(sLink));
 }
 
-export function getLinkCountOfClasses(response): LinkCount[]{
-    let linkCount: LinkCount[] = [];
-    const sparqlLinkTypes = response.results.bindings;
-    sparqlLinkTypes.forEach(sLink => {
-        let link = {id: sLink.class.value, count: Number(sLink.propertiesCount.value)};
-        linkCount.push(link);
-    });
-
-    return linkCount;
-}
-
-export function getPropertyCountOfClasses(response): PropertyCount[] {
+/**
+ * Get property count of each concepts(concept can be class or individual)
+ * @param response
+ * @returns {PropertyCount[]}
+ */
+export function getPropertyCountOfConcepts(response): PropertyCount[] {
     let propertyCounts: PropertyCount[] = [];
 
     let sparqlPropertyCounts = response.results.bindings;
-    // Ensure that this function works in case not any class in ontology has properties
-    if(sparqlPropertyCounts[0].class) {
+    // Ensure that this function works in case not any class/individuals in ontology has properties
+    if(sparqlPropertyCounts[0].id) {
         sparqlPropertyCounts.forEach(sCount => {
-            propertyCounts.push({id: sCount.class.value, count: Number(sCount.propertyCount.value)});
+            propertyCounts.push({id: sCount.id.value, count: Number(sCount.count.value)});
         });
     }
     return propertyCounts;
 }
 
-// Process filtered data returned from SparQL query
 export function getFilteredData(response: SparqlResponse<ElementBinding>): Dictionary<ElementModel> {
     const sInstances = response.results.bindings;
     const instancesMap: Dictionary<ElementModel> = {};

@@ -48,7 +48,12 @@ export interface PropertyModel {
     label: { values: LocalizedString[] };
 }
 
-export interface ConceptModel extends ClassModel {
+export interface ConceptModel {
+    id: string;
+    label: { values: LocalizedString[] };
+    count: number; // This field is for concept as class
+    children: ConceptModel[];
+    parent: ConceptModel[];
     level?:number;
     aGlobalDensity?: number;
     globalDensity?: number;
@@ -64,7 +69,6 @@ export interface ConceptModel extends ClassModel {
     covered: ConceptModel[];
     allSuperConcepts: ConceptModel[];
     allSubConcepts: ConceptModel[];
-    directSubConcepts: ConceptModel[];
     indirectSubConcepts: ConceptModel[];
     subKeyConcepts: ConceptModel[];
     presentOnDiagram?: boolean;

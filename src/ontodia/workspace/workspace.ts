@@ -83,9 +83,9 @@ export class Workspace extends Component<Props, State> {
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
                 isIntegratingMode: true,
-                onChangeDrawingMode: drawingMode => this.diagram.visualizeCognitiveInformationSpace(drawingMode),
                 onVisualizeWithKCE: conceptCount => this.diagram.visualizeKeyConcepts(conceptCount),
-                onClearPaper: () => this.diagram.clearPaper()
+                onClearPaper: () => this.diagram.clearPaper(),
+                onChangeRegime: this.changeRegime,
             }),
         } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
     }
@@ -111,7 +111,6 @@ export class Workspace extends Component<Props, State> {
         this.diagram.listenTo(this.model, 'state:linksInfoCreated', () => {
             this.forceLayout();
             this.zoomToFit();
-            // this.diagram.trigger('state:layoutForced');
         });
 
         this.diagram.listenTo(this.diagram, 'action:center', (element) => {
@@ -256,6 +255,10 @@ export class Workspace extends Component<Props, State> {
 
     changeLanguage = (language: string) => {
         this.diagram.setLanguage(language);
+    }
+
+    changeRegime = (regime: string) => {
+        this.diagram.setRegime(regime);
     }
 }
 

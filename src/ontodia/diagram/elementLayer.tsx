@@ -120,7 +120,6 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
         this.propertyObserver.observe(Object.keys(model.template.properties));
 
         const template = view.getElementTemplate(model.template.types);
-        console.log(model);
 
         const {x = 0, y = 0} = model.get('position') || {};
         let transform = `translate(${x}px,${y}px)`;
@@ -209,7 +208,7 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
 
         // Get label by current language
         let label = view.getLocalizedText(model.template.label.values).text;
-        label +=  view.getSubClassInfo(model.id);
+        label +=  view.model.getSubConceptInfo(model.id);
         const {color, icon} = this.styleFor(model);
         const propsAsList = this.getPropertyTable();
         let author = this.getProperty(propsAsList, HAS_AUTHOR_URI);

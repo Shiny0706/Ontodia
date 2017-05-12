@@ -4,7 +4,8 @@ import * as joint from 'jointjs';
 import { merge, cloneDeep, each, filter } from 'lodash';
 import { createElement } from 'react';
 import { render as reactDOMRender, unmountComponentAtNode } from 'react-dom';
-import {createRequest } from '../widgets/instancesSearch'
+import {createRequest } from '../widgets/instancesSearch';
+
 import {
     TypeStyleResolver,
     LinkStyleResolver,
@@ -21,6 +22,8 @@ import { DefaultTemplateBundle } from '../customization/templates/defaultTemplat
 import { Halo } from '../viewUtils/halo';
 import { ConnectionsMenu } from '../viewUtils/connectionsMenu';
 import { IsAPathMenu } from '../viewUtils/isAPathMenu';
+import {ClassifierSelectionMenu } from '../widgets/classifierSelectionMenu'
+
 import {
     toSVG, ToSVGOptions, toDataURL, ToDataURLOptions,
 } from '../viewUtils/toSvg';
@@ -127,7 +130,6 @@ export class DiagramView extends Backbone.Model {
         this.listenTo(this, 'state:layoutForced', () => {
             this.trigger('action:center', this.selectedElement);
         });
-
     }
 
     public clearPaper() {
@@ -178,8 +180,6 @@ export class DiagramView extends Backbone.Model {
         this.selection.reset(elementsToSelect);
         this.model.storeBatchCommand();
     }
-
-
 
     visualizeCISWithRepresentationMode (){
         let filteredClasses = filter(this.model.classTree, clazz => {
@@ -272,6 +272,15 @@ export class DiagramView extends Backbone.Model {
 
             this.model.storeBatchCommand();
         });
+    }
+
+    setRegime(regime: string) {
+        this.set('regime', regime);
+        if(regime === 'individual') {
+            this.showClassifierSelectionMenu();
+        } else {
+            this.model.resetActiveConceptsTree();
+        }
     }
 
     getLanguage(): string { return this.get('language'); }
@@ -513,6 +522,20 @@ export class DiagramView extends Backbone.Model {
         });
     }
 
+    private classifierSelectionMenu: ClassifierSelectionMenu;
+
+    showClassifierSelectionMenu() {
+        this.classifierSelectionMenu = new ClassifierSelectionMenu({
+            paper: this.paper,
+            view: this,
+            linkRetrieveCriteria: {elementTypeId: "http://www.w3.org/2002/07/owl#ObjectProperty"},
+            onClose: () => {
+                this.classifierSelectionMenu.remove();
+                this.classifierSelectionMenu = undefined;
+            }
+        });
+    }
+
     hideNavigationMenu() {
         if (this.connectionsMenu) {
             this.connectionsMenu.remove();
@@ -589,7 +612,7 @@ export class DiagramView extends Backbone.Model {
      * Return string, representing number of direct sub classes and indirect subclasses of of class or empty string if element is not a class
      */
     public getSubClassInfo(elementId: string) : string{
-        return this.model.getSubClassInfo(elementId);
+        return this.model.getSubConceptInfo(elementId);
     }
 
     public getLocalizedText(texts: LocalizedString[]): LocalizedString {

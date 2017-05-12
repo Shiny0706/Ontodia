@@ -3,7 +3,7 @@ import * as $ from 'jquery';
 import { DataProvider, FilterParams } from '../provider';
 import {
     Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel, PropertyCount,
-    ConceptModel, ConceptModel
+    ConceptModel
 } from '../model';
 import {
     getClassTree,
@@ -16,17 +16,15 @@ import {
     getEnrichedElementsInfo,
     getLinkTypesInfo,
     getPropertyInfo,
-    getLinkCountOfClasses,
-    getPropertyCountOfClasses
+    getPropertyCountOfConcepts,
+    getInstanceConceptsTree,
+    getReverseInstanceConceptsTree,
 } from './responseHandler';
 import {
     SparqlResponse, ClassBinding, ElementBinding, LinkBinding,
     LinkTypeBinding, LinkTypeInfoBinding, ElementImageBinding,
-    PropertyBinding,
+    PropertyBinding, ConceptBinding,
 } from './sparqlModels';
-
-
-import { Config } from '../../../../stardogConfig.ts';
 
 const DEFAULT_PREFIX =
 `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -35,11 +33,10 @@ const DEFAULT_PREFIX =
  PREFIX my:   <http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/>
 ` + '\n\n';
 
-const CONCEPT_URI = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept>";
-const ASSOCIATE_URI = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/associates>";
-const REPRESENTED_URI = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/representedIn>";
-const INCLUDE_URI = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/includes>";
-const RELATION_BETWEEN_CONCEPTS_URI = "<http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/relationBetweenConcepts>";
+const CONCEPT_URI = escapeIri("http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept");
+const ASSOCIATE_URI = escapeIri("http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/associates");
+const REPRESENTED_URI = escapeIri("http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/representedIn");
+const RELATION_BETWEEN_CONCEPTS_URI = escapeIri("http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/relationBetweenConcepts");
 
 export interface SparqlDataProviderOptions {
     endpointUrl: string;
@@ -71,8 +68,52 @@ export class SparqlDataProvider implements DataProvider {
             this.options.endpointUrl, query).then(getClassTree);
     }
 
-    conceptTree(): Promise<ConceptModel[]> {
+    instanceConceptsTree(classId: string, classifierIds: string[]): Promise<ConceptModel[]> {
+        const classifiers = classifierIds.map(escapeIri).join(', ');
+        const classURI = escapeIri(classId);
+        const query = DEFAULT_PREFIX + `
+            SELECT ?concept ?parent ?label
+            WHERE {
+                {
+                    ?concept a ${classURI}.
+                }
+                OPTIONAL {
+                    ?concept rdfs:label ?label.
+                }
+                OPTIONAL {
+                    ?concept ?link ?parent.
+                    ?parent a ${classURI}.
+                    filter(?link in (${classifiers})).
+                }
+            }
+        `;
+        return executeSparqlQuery<ClassBinding> (this.options.endpointUrl, query).then(getInstanceConceptsTree);
+    }
 
+    // Tree with relation type hasChild
+    reverseInstanceConceptsTree(classId: string, classifierIds: string[]): Promise<ConceptModel[]> {
+        const classifiers = classifierIds.map(escapeIri).join(', ');
+        const classURI = escapeIri(classId);
+        const query = DEFAULT_PREFIX + `
+            SELECT ?concept ?label ?child ?childLabel
+            WHERE {
+                {
+                    ?concept a ${classURI}.
+                }
+                OPTIONAL {
+                    ?concept rdfs:label ?label.
+                }
+                OPTIONAL {
+                    ?concept ?reverseLink ?child.
+                    ?child a ${classURI}.
+                    filter(?reverseLink in (${classifiers})).
+                    OPTIONAL {
+                        ?child rdfs:label ?childLabel
+                    }
+                }
+            }
+        `;
+        return executeSparqlQuery<ConceptBinding> (this.options.endpointUrl, query).then(getReverseInstanceConceptsTree);
     }
 
     propertyInfo(params: { propertyIds: string[] }): Promise<Dictionary<PropertyModel>> {
@@ -233,30 +274,33 @@ export class SparqlDataProvider implements DataProvider {
         return executeSparqlQuery<LinkTypeBinding>(this.options.endpointUrl, query).then(getLinksTypesOf);
     };
 
-    // This only count number of object properties, not including data properties
-    linkCountOfClasses(): Promise<LinkCount[]> {
-        const query = DEFAULT_PREFIX + `
-            select ?class (count(?link) as ?propertiesCount)
-            where {
-                ?class ?link ?anotherClass.
-                ?class a owl:Class.
-                ?anotherClass a owl:Class
-            }
-            group by ?class
-        `;
-        return  executeSparqlQuery<LinkTypeBinding>(this.options.endpointUrl, query).then(getLinkCountOfClasses);
-    }
-
     propertyCountOfClasses(): Promise<PropertyCount[]> {
         const query = DEFAULT_PREFIX + `
-            select ?class (count(?property) as ?propertyCount)
-            where {
-              ?class a owl:Class.
-              ?property rdfs:domain ?class
-            } group by ?class       
+            SELECT ?id (count(?property) as ?count)
+            WHERE {
+              ?id a owl:Class.
+              OPTIONAL {
+                ?property rdfs:domain ?id
+              }
+            } GROUP BY ?id
         `;
         return executeSparqlQuery<>(
-            this.options.endpointUrl, query).then(getPropertyCountOfClasses);
+            this.options.endpointUrl, query).then(getPropertyCountOfConcepts);
+    }
+
+    propertyCountOfIndividuals(classId: string): Promise<PropertyCount[]> {
+        let classURI = escapeIri(classId);
+        const query = DEFAULT_PREFIX + `
+            SELECT ?id (count(?property) as ?count)
+            WHERE {
+              ?id a ${classURI}.
+              OPTIONAL {
+                ?property ?link ?id
+              }
+            } GROUP BY ?id
+        `;
+        return executeSparqlQuery<>(
+            this.options.endpointUrl, query).then(getPropertyCountOfConcepts);
     }
 
     filter(params: FilterParams): Promise<Dictionary<ElementModel>> {
@@ -309,7 +353,6 @@ export class SparqlDataProvider implements DataProvider {
                 BIND (coalesce (?label1, ?label2, ?extractedLabel) as ?sortLabel)
             }
         `;
-
         return executeSparqlQuery<ElementBinding>(
             this.options.endpointUrl, query).then(getFilteredData);
     };
@@ -318,7 +361,7 @@ export class SparqlDataProvider implements DataProvider {
 function escapeIri(iri: string) {
     return `<${iri}>`;
 }
-// TODO: export this function from somewhere else
+
 export function getConceptAndConceptRepresentationOfResource(endpoint: String){
     let query = DEFAULT_PREFIX + `
         SELECT DISTINCT ?source ?type ?target
@@ -336,7 +379,6 @@ export function getConceptAndConceptRepresentationOfResource(endpoint: String){
             }
         }
         `;
-
     return executeSparqlQuery<ElementBinding>(endpoint, query).then(getLinksInfo);
 }
 

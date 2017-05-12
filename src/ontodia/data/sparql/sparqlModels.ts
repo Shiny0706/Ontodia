@@ -33,6 +33,15 @@ export interface ClassBinding {
     parent?: RdfIri;
 }
 
+export interface ConceptBinding {
+    concept: RdfIri;
+    label?: RdfLiteral;
+    parent?: RdfIri;
+    parentLabel?: RdfLiteral;
+    child?: RdfIri;
+    childLabel?: RdfLiteral;
+}
+
 export interface PropertyBinding {
     prop: RdfIri;
     label?: RdfLiteral;
