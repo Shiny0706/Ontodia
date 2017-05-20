@@ -113,6 +113,10 @@ export class Workspace extends Component<Props, State> {
             this.zoomToFit();
         });
 
+        this.diagram.listenTo(this.diagram, 'state:regimeInstanceCancelled', () => {
+            // this.markup.props.toolbar.setState({regime: 'class'});
+        });
+
         this.diagram.listenTo(this.diagram, 'action:center', (element) => {
             if(element) {
                 let {x, y} = element.position();

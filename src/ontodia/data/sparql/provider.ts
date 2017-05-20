@@ -68,52 +68,37 @@ export class SparqlDataProvider implements DataProvider {
             this.options.endpointUrl, query).then(getClassTree);
     }
 
-    instanceConceptsTree(classId: string, classifierIds: string[]): Promise<ConceptModel[]> {
+    instanceConceptsTree(classifierIds: string[], inverseClassifierIds: string[]): Promise<ConceptModel[]> {
         const classifiers = classifierIds.map(escapeIri).join(', ');
-        const classURI = escapeIri(classId);
+        const inverseClassifiers = inverseClassifierIds.map(escapeIri).join(', ');
         const query = DEFAULT_PREFIX + `
-            SELECT ?concept ?parent ?label
+            SELECT ?concept ?label ?child ?childLabel ?parent ?parentLabel
             WHERE {
-                {
-                    ?concept a ${classURI}.
-                }
+              {
+                ?concept a owl:NamedIndividual.
+              }
+              OPTIONAL {
+                ?concept rdfs:label ?label.
+              }
+              OPTIONAL {
+                ?concept ?reverseClassifierRel ?child.
+                ?child a owl:NamedIndividual.
+                filter(?reverseClassifierRel in (${inverseClassifiers})).
                 OPTIONAL {
-                    ?concept rdfs:label ?label.
+                  ?child rdfs:label ?childLabel
                 }
+              }
+              OPTIONAL {
+                ?concept ?directClassifierRel ?parent.
+                ?parent a owl:NamedIndividual.
+                filter(?directClassifierRel in (${classifiers})).
                 OPTIONAL {
-                    ?concept ?link ?parent.
-                    ?parent a ${classURI}.
-                    filter(?link in (${classifiers})).
+                  ?parent rdfs:label ?parentLabel
                 }
+              }
             }
         `;
         return executeSparqlQuery<ClassBinding> (this.options.endpointUrl, query).then(getInstanceConceptsTree);
-    }
-
-    // Tree with relation type hasChild
-    reverseInstanceConceptsTree(classId: string, classifierIds: string[]): Promise<ConceptModel[]> {
-        const classifiers = classifierIds.map(escapeIri).join(', ');
-        const classURI = escapeIri(classId);
-        const query = DEFAULT_PREFIX + `
-            SELECT ?concept ?label ?child ?childLabel
-            WHERE {
-                {
-                    ?concept a ${classURI}.
-                }
-                OPTIONAL {
-                    ?concept rdfs:label ?label.
-                }
-                OPTIONAL {
-                    ?concept ?reverseLink ?child.
-                    ?child a ${classURI}.
-                    filter(?reverseLink in (${classifiers})).
-                    OPTIONAL {
-                        ?child rdfs:label ?childLabel
-                    }
-                }
-            }
-        `;
-        return executeSparqlQuery<ConceptBinding> (this.options.endpointUrl, query).then(getReverseInstanceConceptsTree);
     }
 
     propertyInfo(params: { propertyIds: string[] }): Promise<Dictionary<PropertyModel>> {
@@ -288,12 +273,11 @@ export class SparqlDataProvider implements DataProvider {
             this.options.endpointUrl, query).then(getPropertyCountOfConcepts);
     }
 
-    propertyCountOfIndividuals(classId: string): Promise<PropertyCount[]> {
-        let classURI = escapeIri(classId);
+    propertyCountOfIndividuals(): Promise<PropertyCount[]> {
         const query = DEFAULT_PREFIX + `
             SELECT ?id (count(?property) as ?count)
             WHERE {
-              ?id a ${classURI}.
+              ?id a owl:NamedIndividual.
               OPTIONAL {
                 ?id ?link ?property
               }

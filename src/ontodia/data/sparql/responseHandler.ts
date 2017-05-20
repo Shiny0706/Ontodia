@@ -255,27 +255,6 @@ export function getInstanceConceptsTree(response: SparqlResponse<ConceptBinding>
             parentNode.children.push(createdTreeNodes[sNodeId]);
             createdTreeNodes[sNodeId].parent.push(parentNode);
         }
-    };
-
-    let rootConcept = getRootOfConceptsTree(createdTreeNodes);
-
-    updateConceptTree(rootConcept);
-
-    return rootConcept;
-}
-
-export function getReverseInstanceConceptsTree(response: SparqlResponse<ConceptBinding>) : ConceptModel{
-    const sNodes = response.results.bindings;
-    const createdTreeNodes: Dictionary<ConceptModel> = {};
-
-    for (const sNode of sNodes) {
-        const sNodeId: string = sNode.concept.value;
-
-        // Add node to tree if node hasn't been added
-        if(!createdTreeNodes[sNodeId]) {
-            // Create new node
-            createdTreeNodes[sNodeId] = getConceptModel({id: sNode.concept.value, label: sNode.label});
-        }
         if(sNode.child) {
             const childNodeId: string = sNode.child.value;
             let childNode: ConceptModel;
@@ -286,10 +265,11 @@ export function getReverseInstanceConceptsTree(response: SparqlResponse<ConceptB
                 childNode = createdTreeNodes[childNodeId];
             }
 
+            // TODO: need to check for repeating direct and reverse relation
             childNode.parent.push(createdTreeNodes[sNodeId]);
             createdTreeNodes[sNodeId].children.push(childNode);
         }
-    };
+    }
 
     let rootConcept = getRootOfConceptsTree(createdTreeNodes);
 
@@ -297,6 +277,7 @@ export function getReverseInstanceConceptsTree(response: SparqlResponse<ConceptB
 
     return rootConcept;
 }
+
 /**
  * Get root of concept tree from created tree nodes, or create one with uri = THING_URI if root does not exist
  * @param createdTreeNodes

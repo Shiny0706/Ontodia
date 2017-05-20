@@ -226,14 +226,6 @@ export class DiagramModel extends Backbone.Model {
         return {layoutData, linkSettings};
     }
 
-    private directLinkIds: string[];
-    private reverseLinkIds: string[];
-
-    setClassifierLinks(directLinkIds: string[], reverseLinkIds: string[]) {
-        this.directLinkIds = directLinkIds;
-        this.reverseLinkIds = reverseLinkIds;
-    }
-
     /**
      * Reset concept tree, remove virtual links
      */
@@ -493,7 +485,8 @@ export class DiagramModel extends Backbone.Model {
             if(!link.directLink) {
                 link.remove();
             }
-        })
+        });
+
         each(this.virtualLinks, linkModel => {
             this.removeLinkReferences(linkModel);
         });
