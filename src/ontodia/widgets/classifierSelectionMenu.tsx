@@ -4,17 +4,17 @@ import {difference, each} from "lodash";
 import * as Backbone from 'backbone';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
-import {FilterParams } from  '../data/provider';
 import { DiagramView } from '../diagram/view';
 import {Dictionary, ElementModel, ConceptModel} from '../data/model'
 import { ConceptRelationsBox } from './conceptRelationsBox';
-import {SearchCriteria, createRequest} from "./instancesSearch";
+
 export interface ClassifierSelectionMenuOptions {
     paper: joint.dia.Paper;
     view: DiagramView;
-    linkRetrieveCriteria: SearchCriteria;
+    elements: Dictionary<ElementModel>
     onClose: () => void;
 }
+
 export class ClassifierSelectionMenu {
     private container: HTMLElement;
     private view: DiagramView;
@@ -22,15 +22,22 @@ export class ClassifierSelectionMenu {
     private state: 'loading' | 'completed';
     private links: ElementModel[];
     private markup: ClassifierSelectionMenuMarkup;
-    private loadedElements: Dictionary<ElementModel>;
 
     constructor(private options: ClassifierSelectionMenuOptions) {
         this.container = document.createElement('div');
         this.options.paper.el.appendChild(this.container);
         this.view = this.options.view;
         this.handler = new Backbone.Model();
-        this.loadConceptsRelation();
         this.render();
+        this.addLinks(options.elements);
+    }
+
+    private addLinks(elements: Dictionary<Element>) {
+        this.links = [];
+        each(elements, element => {
+            this.links.push(element);
+        });
+        this.markup.conceptRelationsBox.setState({items: this.links});
     }
 
     private render = () => {
@@ -44,6 +51,7 @@ export class ClassifierSelectionMenu {
             connectionData: connectionData,
             state: this.state,
             onButtonSavePressed: this.saveClassifierSelection.bind(this),
+            onButtonCancelPressed: this.options.onClose,
             addDirectLink: (e: DragEvent) =>  {
                 this.updateLinksBox(e, this.markup.directRelationsBox);
             },
@@ -64,12 +72,8 @@ export class ClassifierSelectionMenu {
 
         let newItems: ElementModel[]= [];
         for(let id of elementIds) {
-            newItems.push(this.loadedElements[id]);
+            newItems.push(this.options.elements[id]);
         }
-
-        targetComponent.setState({
-            items: targetComponent.state.items.concat(newItems)
-        });
 
         let sourceComponent: ConceptRelationsBox = undefined;
         if(source === 'all-links') {
@@ -79,7 +83,16 @@ export class ClassifierSelectionMenu {
         } else {
             sourceComponent = this.markup.reverseRelationsBox;
         }
+
+        if(sourceComponent === targetComponent) {
+            return;
+        }
+
         sourceComponent.setState({items: difference(sourceComponent.state.items, newItems)});
+
+        targetComponent.setState({
+            items: targetComponent.state.items.concat(newItems)
+        });
     }
 
     private static parseDataTransfer(e: DragEvent): {elementIds: string[], source: string} {
@@ -97,31 +110,6 @@ export class ClassifierSelectionMenu {
         }
         if (!dataTransfer) { return {elementIds: undefined, source: undefined}; }
         return {elementIds: dataTransfer.elementIds, source: dataTransfer.source};
-    }
-
-    private loadConceptsRelation() {
-        this.state = 'loading';
-        this.links = [];
-        let request: FilterParams = createRequest(this.options.linkRetrieveCriteria, this.options.view.getLanguage());
-
-        this.options.view.model.dataProvider.filter(request).then(elements => {
-            this.state = 'completed';
-            this.processFilterLinksData(elements);
-            this.markup.conceptRelationsBox.setState({items: this.links});
-            this.render();
-        }).catch(error => {
-            console.error(error);
-        });
-    }
-
-    private processFilterLinksData(elements: Dictionary<ElementModel>) {
-        this.loadedElements = elements;
-        const newItems: ElementModel[] = [];
-        for (const elementId in elements) {
-            let element = elements[elementId];
-            newItems.push(element);
-        }
-        this.links = newItems;
     }
 
     remove() {
@@ -146,6 +134,8 @@ export class ClassifierSelectionMenu {
             let classId: string = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept";
             let dataProvider = this.view.model.dataProvider;
 
+
+
             Promise.all<ConceptModel[]>([
                 dataProvider.reverseInstanceConceptsTree(classId, directLinkIds),
                 dataProvider.propertyCountOfIndividuals(classId)
@@ -166,6 +156,7 @@ export interface ClassifierSelectionMenuMarkupProps {
         links: ElementModel[]
     }
     onButtonSavePressed: () => void;
+    onButtonCancelPressed: () => void;
     addDirectLink:(e: DragEvent) => void;
     addReverseLink: (e: DragEvent) => void;
     restoreLink: (e: DragEvent) => void;
@@ -223,6 +214,7 @@ export class ClassifierSelectionMenuMarkup extends React.Component<ClassifierSel
                 </div>
                 <div>
                     <button className={`${CLASS_NAME}__btn-save btn btn-primary pull-right`} onClick={this.props.onButtonSavePressed}>Save</button>
+                    <button className={`${CLASS_NAME}__btn-save btn btn-primary pull-right`} onClick={this.props.onButtonCancelPressed}>Cancel</button>
                 </div>
             </div>
         );

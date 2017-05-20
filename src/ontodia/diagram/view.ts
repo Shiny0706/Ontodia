@@ -1,10 +1,10 @@
 import { hcl } from 'd3-color';
 import * as Backbone from 'backbone';
 import * as joint from 'jointjs';
-import { merge, cloneDeep, each, filter } from 'lodash';
+import { merge, cloneDeep, each } from 'lodash';
 import { createElement } from 'react';
 import { render as reactDOMRender, unmountComponentAtNode } from 'react-dom';
-import {createRequest } from '../widgets/instancesSearch';
+import {createRequest, SearchCriteria} from '../widgets/instancesSearch';
 
 import {
     TypeStyleResolver,
@@ -30,17 +30,13 @@ import {
 
 import { Dictionary, ElementModel, LocalizedString, ConceptModel } from '../data/model';
 
-import { DiagramModel, chooseLocalizedText, uri2name } from './model';
+import { DiagramModel, chooseLocalizedText, uri2name, HAS_RELATION_WITH_IRI, SUB_CLASS_OF_IRI } from './model';
 import { Element, FatClassModel, linkMarkerKey , Link} from './elements';
 
 import { LinkView } from './linkView';
 import { SeparatedElementView } from './separatedElementView';
 import { ElementLayer } from './elementLayer';
-
-const CONCEPT_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept";
-const INFORMATION_RESOURCE_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/InformationResource";
-const CONCEPT_REPRESENTATION_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/ConceptRepresentation";
-
+import union = require("lodash/union");
 
 export interface DiagramViewOptions {
     typeStyleResolvers?: TypeStyleResolver[];
@@ -133,44 +129,51 @@ export class DiagramView extends Backbone.Model {
     }
 
     public clearPaper() {
-        this.model.graph.clear();
+        this.model.graph.trigger('batch:start');
+        let elements = this.model.elements;
+        for (const element of elements) {
+            element.remove();
+        }
         this.selection.reset([]);
+        this.model.graph.trigger('batch:stop');
         this.model.unShowConcepts();
     }
 
     visualizeKeyConcepts(conceptCount: number) {
-
-        this.model.graph.clear();
-        this.selection.reset([]);
-        this.model.unShowConcepts();
-
+        this.clearPaper();
         let keyConcepts: ConceptModel[] = this.model.extractKeyConcepts(conceptCount);
         this.model.initBatchCommand();
         let elementsToSelect: Element[] = [];
 
         let totalXOffset = 0;
         let x = 300, y = 300;
-        each(keyConcepts, el => {
-            const element = this.createElementAt(el.id, {x: x, y: y, center:false});
-            x += element.get('size').width;
-            if(x >800) {
-                totalXOffset = 0;
-                x = 300;
-                y += element.get('size').height + 50;
-            }
-            elementsToSelect.push(element);
-            el.presentOnDiagram = true;
-        });
 
-        this.model.requestElementData(elementsToSelect);
-        this.model.createVirtualLinksBetweenKeyConcepts();
-        this.model.requestLinksOfType();
-        this.selection.reset(elementsToSelect);
-        this.model.storeBatchCommand();
+        // This will fix element selection error
+        setTimeout(() => {
+            each(keyConcepts, el => {
+                const element = this.createElementAt(el.id, {x: x, y: y, center:false});
+                x += element.get('size').width;
+                if(x >800) {
+                    totalXOffset = 0;
+                    x = 300;
+                    y += element.get('size').height + 50;
+                }
+                elementsToSelect.push(element);
+                el.presentOnDiagram = true;
+            });
+
+            this.visualizedConcepts = keyConcepts;
+            this.model.requestElementData(elementsToSelect);
+            this.model.createVirtualLinksBetweenVisualizedConcepts(this.visualizedConcepts);
+            this.model.requestLinksOfType();
+            this.selection.reset(elementsToSelect);
+            this.model.storeBatchCommand();
+        }, 100);
     }
 
     setRegime(regime: string) {
         this.set('regime', regime);
+        this.model.set('regime', regime);
         if(regime === 'individual') {
             this.showClassifierSelectionMenu();
         } else {
@@ -261,16 +264,23 @@ export class DiagramView extends Backbone.Model {
         });
 
         this.listenTo(this.paper, 'cell:mouseover', (cellView: joint.dia.CellView, evt: MouseEvent) => {
-            if (cellView.model instanceof joint.dia.Link) {
-                if(cellView.model.typeId === 'http://www.w3.org/2000/01/rdf-schema#indirectSubClassOf') {
-                    this.showIsAPath(cellView);
+            if(!this.isAPathMenu) {
+                if (cellView.model instanceof joint.dia.Link) {
+                    let shouldShow = (cellView.model.typeId === SUB_CLASS_OF_IRI
+                        || cellView.model.typeId === HAS_RELATION_WITH_IRI)
+                        && !cellView.model.directLink;
+                    if(shouldShow) {
+                        this.showIsAPath(cellView);
+                    }
                 }
             }
         });
 
         this.listenTo(this.paper, 'cell:mouseout', (cellView: joint.dia.CellView, evt: MouseEvent) => {
             if (cellView.model instanceof joint.dia.Link) {
-                if(cellView.model.typeId === 'http://www.w3.org/2000/01/rdf-schema#indirectSubClassOf' && this.isAPathMenu) {
+                let shouldRemove = (cellView.model.typeId === SUB_CLASS_OF_IRI ||
+                cellView.model.typeId === HAS_RELATION_WITH_IRI) && this.isAPathMenu;
+                if(shouldRemove) {
                     this.isAPathMenu.remove();
                     this.isAPathMenu = undefined;
                 }
@@ -344,10 +354,11 @@ export class DiagramView extends Backbone.Model {
 
     private selectedElement:Element;
 
-    private loadMoreConcepts(selectedElement: Element) {
+    loadMoreConcepts(selectedElement: Element) {
         this.selectedElement = selectedElement;
 
-        let concepts: ConceptModel = this.model.loadMoreConcepts(selectedElement.id);
+        let concepts: ConceptModel[] = this.model.loadMoreConcepts(selectedElement.id);
+
         const positionBoxSide = Math.round(Math.sqrt(concepts.length)) + 1;
         const GRID_STEP = 100;
         let pos;
@@ -364,6 +375,8 @@ export class DiagramView extends Backbone.Model {
         let yi = 0;
 
         const addedElements: Element[] = [];
+        this.model.initBatchCommand();
+
         concepts.forEach(el => {
             if (xi > positionBoxSide) {
                 xi = 0;
@@ -381,6 +394,7 @@ export class DiagramView extends Backbone.Model {
             el.presentOnDiagram = true;
             addedElements.push(element);
         });
+
         if(addedElements.length > 0) {
             each(this.recentlyExtractedElements, el => {
                 el.set('recentlyExtracted', false);
@@ -388,9 +402,15 @@ export class DiagramView extends Backbone.Model {
             this.recentlyExtractedElements = addedElements;
         }
 
+        this.model.removeVirtualLinks();
+        this.visualizedConcepts = union(this.visualizedConcepts, concepts);
         this.model.requestElementData(addedElements);
+        this.model.createVirtualLinksBetweenVisualizedConcepts(this.visualizedConcepts);
         this.model.requestLinksOfType();
+        this.model.storeBatchCommand();
     }
+
+    visualizedConcepts: ConceptModel[] = [];
 
     showNavigationMenu(element: Element) {
         const cellView = this.paper.findViewByModel(element);
@@ -420,15 +440,25 @@ export class DiagramView extends Backbone.Model {
     private classifierSelectionMenu: ClassifierSelectionMenu;
 
     showClassifierSelectionMenu() {
-        this.classifierSelectionMenu = new ClassifierSelectionMenu({
-            paper: this.paper,
-            view: this,
-            linkRetrieveCriteria: {elementTypeId: "http://www.w3.org/2002/07/owl#ObjectProperty"},
-            onClose: () => {
-                this.classifierSelectionMenu.remove();
-                this.classifierSelectionMenu = undefined;
-            }
+        this.clearPaper();
+        this.model.trigger('state:beginLoadConceptRelations');
+        let criterion: SearchCriteria = {elementTypeId: "http://www.w3.org/2002/07/owl#ObjectProperty"};
+        let request = createRequest(criterion, this.getLanguage());
+        this.model.dataProvider.filter(request).then(elements => {
+            this.model.trigger('state:endLoadConceptRelations', null);
+            this.classifierSelectionMenu = new ClassifierSelectionMenu({
+                paper: this.paper,
+                view: this,
+                elements: elements,
+                onClose: () => {
+                    this.classifierSelectionMenu.remove();
+                    this.classifierSelectionMenu = undefined;
+                }
+            });
+        }).catch(error => {
+            this.trigger('state:endLoadConceptRelations', error);
         });
+
     }
 
     hideNavigationMenu() {
@@ -503,7 +533,7 @@ export class DiagramView extends Backbone.Model {
     /**
      * Get subclass info of element
      *
-     * @param
+     * @param elementId
      * Return string, representing number of direct sub classes and indirect subclasses of of class or empty string if element is not a class
      */
     public getSubClassInfo(elementId: string) : string{
@@ -596,10 +626,10 @@ export class DiagramView extends Backbone.Model {
         }
     }
 
-    getLinkStyle(linkTypeId: string): LinkStyle {
+    getLinkStyle(linkTypeId: string, directLink: boolean): LinkStyle {
         let style = getDefaultLinkStyle();
         for (const resolver of this.linkStyleResolvers) {
-            const result = resolver(linkTypeId);
+            const result = resolver(linkTypeId, directLink);
             if (result) {
                 merge(style, cloneDeep(result));
                 break;
@@ -683,9 +713,10 @@ function getHueFromClasses(classes: string[], seed?: number): number {
 }
 
 function getDefaultLinkStyle(): LinkStyle {
-    return {
+    let result = {
         markerTarget: {d: 'M0,0 L0,8 L9,4 z', width: 9, height: 8, fill: 'black'},
     };
+    return result;
 }
 
 /**

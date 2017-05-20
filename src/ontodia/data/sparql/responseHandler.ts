@@ -20,7 +20,7 @@ const SYMMETRIC_PROPERTY_URI = "http://www.w3.org/2002/07/owl#SymmetricProperty"
 const ANNOTATION_PROPERTY_URI = "http://www.w3.org/2002/07/owl#AnnotationProperty";
 const DISJOINT_CLASSES_URI = "http://www.w3.org/2002/07/owl#DisjointClasses";
 const ALL_DIFFERENT_URI = "http://www.w3.org/2002/07/owl#AllDifferent";
-const RESTRICTION_URI = "http://www.w3.org/2002/07/owl#Ontology";
+const RESTRICTION_URI = "http://www.w3.org/2002/07/owl#Restriction";
 const ONTOLOGY_URI = "http://www.w3.org/2002/07/owl#Ontology";
 
 const PRIMITIVE_TYPE = [THING_URI, LABEL_URI, NAME_INDIVIDUAL_URI, CLASS_URI,
@@ -85,11 +85,15 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassMode
 
     each(tempNodes, tempNode => {
         let createdNode = createdTreeNodes[tempNode.id];
-        each(tempNode.children, childOfTemp => {
-            if(createdNode.children.indexOf(childOfTemp) < 0) {
-                createdNode.children.push(childOfTemp);
-            }
-        });
+        if(!createdNode) {
+            tree.push(tempNode);
+        } else {
+            each(tempNode.children, childOfTemp => {
+                if(createdNode.children.indexOf(childOfTemp) < 0) {
+                    createdNode.children.push(childOfTemp);
+                }
+            });
+        }
     });
 
     let pureClassTree: ClassModel[] = [];

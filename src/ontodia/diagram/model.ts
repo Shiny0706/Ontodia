@@ -6,17 +6,19 @@ import {
     Dictionary, LocalizedString, LinkType, ClassModel, ElementModel, LinkModel, PropertyCount,
     ConceptModel,
 } from '../data/model';
-import { DataProvider } from '../data/provider';
+import {DataProvider} from '../data/provider';
+import {BFSConceptModel} from '../data/model';
 
 import { LayoutData, LayoutElement, normalizeImportedCell, cleanExportedLayout } from './layoutData';
 import { Element, Link, FatLinkType, FatClassModel, RichProperty } from './elements';
 import { DataFetchingThread } from './dataFetchingThread';
-import Config from '../../../stardogConfig';
-import {getConceptAndConceptRepresentationOfResource} from '../data/sparql/provider';
 
 export type IgnoreCommandHistory = { ignoreCommandManager?: boolean };
 export type PreventLinksLoading = { preventLoading?: boolean; };
 
+export const HAS_RELATION_WITH_IRI = 'http://www.semanticweb.org/tuyenhuynh/ontologies/2017/1/kce#hasRelationWith';
+export const SUB_CLASS_OF_IRI = 'http://www.w3.org/2000/01/rdf-schema#subClassOf';
+export const THING_IRI = "http://www.w3.org/2002/07/owl#Thing";
 
 type ChangeVisibilityOptions = { isFromHandler?: boolean };
 
@@ -50,7 +52,6 @@ export class DiagramModel extends Backbone.Model {
     private activeConceptTree: ConceptModel;
 
     private classConceptTree: ConceptModel;
-    private instanceConceptTree: ConceptModel;
 
     private classesById: Dictionary<FatClassModel> = {};
 
@@ -119,6 +120,7 @@ export class DiagramModel extends Backbone.Model {
                     sourceId: cell.source.id,
                     targetId: cell.target.id,
                     linkTypeId: cell.typeId,
+                    directLink: cell.directLink,
                     suggestedId: cell.id,
                     vertices: cell.vertices,
                 });
@@ -232,10 +234,14 @@ export class DiagramModel extends Backbone.Model {
         this.reverseLinkIds = reverseLinkIds;
     }
 
+    /**
+     * Reset concept tree, remove virtual links
+     */
     resetActiveConceptsTree() {
         this.activeConceptTree = this.classConceptTree;
         this.resetConceptList();
         let path: ConceptModel[] = [];
+        this.virtualLinks = [];
         this.paths = this.calcAllPaths(this.activeConceptTree, path);
     }
 
@@ -251,7 +257,6 @@ export class DiagramModel extends Backbone.Model {
                 this.conceptsById[item.id].propertyCount = item.count;
             }
         });
-
 
         let path: ConceptModel[] = [];
         this.paths = this.calcAllPaths(this.activeConceptTree, path);
@@ -291,6 +296,7 @@ export class DiagramModel extends Backbone.Model {
                 });
             }
         }
+
         return result;
     }
 
@@ -394,10 +400,6 @@ export class DiagramModel extends Backbone.Model {
         }
     }
 
-    public getKeyConcepts(): ConceptModel[] {
-        return this.keyConcepts;
-    }
-
     createElement(idOrModel: string | ElementModel): Element {
         const id = typeof idOrModel === 'string' ? idOrModel : idOrModel.id;
         const existing = this.getElement(id);
@@ -440,7 +442,13 @@ export class DiagramModel extends Backbone.Model {
         return this.dataProvider.linksInfo({
             elementIds: this.graph.getElements().map(element => element.id),
             linkTypeIds: linkTypeIds,
-        }).then(links => this.onLinkInfoLoaded(links))
+        }).then(links => {
+            each(links, link => {
+                link.directLink = true;
+            });
+
+            this.onLinkInfoLoaded(links);
+        })
         .catch(err => {
             console.error(err);
             return Promise.reject(err);
@@ -448,69 +456,56 @@ export class DiagramModel extends Backbone.Model {
     }
 
     /**
-     * Create virtual links among key concepts, include direct and indirect links rdfs:SubClassOf
+     * Create virtual links between key concepts
      */
-    public createVirtualLinksBetweenKeyConcepts() {
-        let root = this.activeConceptTree;
-        let kcMap:Dictionary<ConceptModel> = {};
-        each(this.keyConcepts, concept => {
-            kcMap[concept.id] = concept;
+    public createVirtualLinksBetweenVisualizedConcepts(keyConcepts: ConceptModel[]) {
+        let virtualLinks: LinkModel[] = [];
+
+        each(keyConcepts, concept => {
+            if(concept.parent.length) {
+                let sortedParents = sortBy(concept.allSuperConcepts, function(concept){
+                    return -concept.level;
+                });
+
+                for(let i = 0; i < sortedParents.length; ++i) {
+                    if(keyConcepts.indexOf(sortedParents[i]) >= 0) {
+                        let delta = concept.level - sortedParents[i].level;
+                        if(delta > 1) {
+                            virtualLinks.push(this.constructVirtualLink(concept.id, sortedParents[i].id, false));
+                        }
+                        break;
+                    }
+                }
+
+                if(concept.parent.length == 1 && concept.parent[0].id === THING_IRI) {
+                    virtualLinks.push(this.constructVirtualLink(concept.id, concept.parent[0].id, true));
+                }
+            }
         });
+        this.virtualLinks = virtualLinks;
+        this.onLinkInfoLoaded(virtualLinks);
+    }
 
-        // Init current node list
-        let currentLevelNodes: ConceptModel[] = [root];
-        delete kcMap[root.id];
+    private virtualLinks: LinkModel[] = [];
 
-        let links: LinkModel[] = [];
-        let level = 0;
-        while(currentLevelNodes.length > 0) {
-            ++level;
-            let nextLevelNodes: ConceptModel[] = [];
-            each(currentLevelNodes, node => {
-                each(node.children, subConcept =>  {
-                    if(kcMap[subConcept.id]) {
-                        // add direct is-a link then remove subConcept from kcMap
-                        node.subKeyConcepts.push(subConcept);
-                        nextLevelNodes.push(subConcept);
-                        let link = {
-                            linkTypeId: 'http://www.w3.org/2000/01/rdf-schema#subClassOf',
-                            sourceId: subConcept.id,
-                            targetId: node.id
-                        };
-                        links.push(link);
-                    }
-                });
+    public removeVirtualLinks() {
+        each(this.links, link => {
+            if(!link.directLink) {
+                link.remove();
+            }
+        })
+        each(this.virtualLinks, linkModel => {
+            this.removeLinkReferences(linkModel);
+        });
+    }
 
-                each(node.indirectSubConcepts, indirectSubConcept =>  {
-                    if(kcMap[indirectSubConcept.id]) {
-                        let found = false;
-                        let superConcepts = indirectSubConcept.allSuperConcepts;
-                        for(let i = 0; i < superConcepts.length; ++i){
-                            if(kcMap[superConcepts[i].id]) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if(!found) {
-                            // add indirect is-a link then remove indirectSubClass from kcMap
-                            node.subKeyConcepts.push(indirectSubConcept);
-                            nextLevelNodes.push(indirectSubConcept);
-                            let link = {
-                                linkTypeId: 'http://www.w3.org/2000/01/rdf-schema#indirectSubClassOf',
-                                sourceId: indirectSubConcept.id,
-                                targetId: node.id
-                            };
-                            links.push(link);
-                        }
-                    }
-                });
-            });
-            each(nextLevelNodes, nextLevelNode => {
-               delete kcMap[nextLevelNode.id];
-            });
-            currentLevelNodes = nextLevelNodes;
-        }
-        this.onLinkInfoLoaded(links);
+    private constructVirtualLink (sourceId: string, targetId: string, directLink: boolean) : LinkModel {
+        return {
+            linkTypeId: this.get('regime') === 'individual' ? HAS_RELATION_WITH_IRI: SUB_CLASS_OF_IRI,
+            sourceId: sourceId,
+            targetId: targetId,
+            directLink: directLink,
+        };
     }
 
     private NC_CONSTANT = 0.3;
@@ -581,12 +576,9 @@ export class DiagramModel extends Backbone.Model {
                     if(avgOverallScore1 > avgOverallScore && avgContribution1 >= avgContribution) {
                         loop = true;
                         bestConceptSet = newConceptSet;
-                        console.log('breaking');
                     }
                 }
-                console.log('looping...' + counter);
             }
-            console.log("Number of loop: " + counter);
 
             this.keyConcepts = bestConceptSet;
         }
@@ -708,8 +700,11 @@ export class DiagramModel extends Backbone.Model {
         each(this.concepts, concept => {
             let name = uri2name(concept.id);
             // Concept is named by owl naming convention
-            var numberOfCompound = name.length - name.replace(/[A-Z]/g, '').length;
+            var numberOfCompound = name.length - name.replace(/[A-Z_]/g, '').length;
             concept.nameSimplicity = 1 - this.NC_CONSTANT * (numberOfCompound -1);
+            if(concept.nameSimplicity < 0) {
+                concept.nameSimplicity = 0;
+            }
         });
     }
 
@@ -842,7 +837,7 @@ export class DiagramModel extends Backbone.Model {
         });
     }
 
-    // TODO: use dijkstra algorithm here to find path
+
     /**
      * Get path from one concept to its super concept
      * @param sourceId - child concept
@@ -850,23 +845,42 @@ export class DiagramModel extends Backbone.Model {
      * @returns {ConceptModel[]}
      */
     public getIsAPath(sourceId: string, targetId: string) {
-        let result: ConceptModel[] = [];
-        let conceptId = sourceId;
-        let loop: boolean = true;
-        while (loop) {
-            let concept = this.conceptsById[conceptId];
-            if(concept) {
-                result.push(concept);
-                if(conceptId === targetId) {
-                    loop = false;
-                }
-                else {
-                    conceptId = concept.parent;
-                }
-            } else {
-                loop = false;
+        let source: ConceptModel = this.conceptsById[sourceId];
+        // create bfs concepts model
+        let check: Dictionary<BFSConceptModel> = {};
+        check[sourceId] = {id: sourceId, checked: false};
+        each(source.allSuperConcepts, parent => {
+            let bfsConcept: BFSConceptModel = {id: parent.id, checked: false};
+            check[bfsConcept.id] = bfsConcept;
+        });
+
+        // BFS
+        let queue: ConceptModel[] = [];
+        queue.push(source);
+
+        let trace: Dictionary<ConceptModel> = {};
+        while(queue.length >0) {
+            let u: ConceptModel = queue.shift();
+            check[u.id].checked = true;
+            if(u.id == targetId) {
+                break;
             }
+            each(u.parent, parent => {
+                if(!check[parent.id].checked) {
+                    queue.push(parent);
+                    trace[parent.id] = u;
+                }
+            });
         }
+
+        let result: ConceptModel[] = [];
+        let currentId = targetId;
+        result.push(this.conceptsById[targetId]);
+        while(currentId != sourceId) {
+            result.push(trace[currentId]);
+            currentId = trace[currentId].id;
+        }
+
         return result;
     }
 
@@ -986,7 +1000,7 @@ export class DiagramModel extends Backbone.Model {
           }
           return existingLink;
         }
-        const {linkTypeId, sourceId, targetId, suggestedId, vertices} = linkModel;
+        const {linkTypeId, sourceId, targetId, suggestedId, vertices, directLink} = linkModel;
         const suggestedIdAvailable = Boolean(suggestedId && !this.cells.get(suggestedId));
 
         // Create link with generation ID
@@ -995,8 +1009,10 @@ export class DiagramModel extends Backbone.Model {
             typeId: linkTypeId,
             source: {id: sourceId},
             target: {id: targetId},
+            directLink: directLink,
             vertices,
         });
+
         if (this.isSourceAndTargetVisible(link) && this.createLinkType(link.typeId).visible) {
             this.registerLink(link);
             this.graph.addCell(link, options);

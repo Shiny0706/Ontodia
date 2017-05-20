@@ -96,6 +96,10 @@ export class PaperArea extends React.Component<Props, {}> {
 
         const model = this.props.model;
         this.listener.listenTo(model, 'state:beginLoad', () => this.showIndicator());
+        this.listener.listenTo(model, 'state:beginLoadConceptRelations', () => this.showIndicator());
+        this.listener.listenTo(model, 'state:endLoadConceptRelations', (err: any) => {
+            this.renderLoadingLinks(err);
+        });
         this.listener.listenTo(model, 'state:endLoad',
             (elementCount: number) => this.renderLoadingIndicator(elementCount));
         this.listener.listenTo(model, 'state:loadError',
@@ -424,6 +428,14 @@ export class PaperArea extends React.Component<Props, {}> {
                 console.error(error);
                 this.renderSpinner({statusText: 'Unknown error occured', errorOccured: true});
             });
+        }
+    }
+
+    private renderLoadingLinks(error: any) {
+        if(error) {
+            this.renderSpinner({statusText: "Can not load concept relations", errorOccured: true});
+        } else {
+            unmountComponentAtNode(this.spinnerElement);
         }
     }
 

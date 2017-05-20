@@ -153,7 +153,7 @@ export class EditorToolbar extends React.Component<Props, State> {
                             title='Export diagram as SVG' onClick={this.onExportSVG}>
                         <span className='fa fa-picture-o' aria-hidden='true' /> SVG
                     </button>
-                    <button type='button' className='btn btn-default'
+                    <button type='button' className='btn btn-default' id="clearPaper"
                             title='Export diagram to other format' onClick={this.props.onClearPaper}>
                         <span className='fa fa-trash' aria-hidden='true' /> Clear
                     </button>

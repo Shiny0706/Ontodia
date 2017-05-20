@@ -122,6 +122,7 @@ export class Link extends joint.dia.Link {
     set typeIndex(value: number) { this.set('typeIndex', value); }
 
     get typeId(): string { return this.get('typeId'); }
+    get directLink(): boolean {return this.get('directLink')};
 
     get sourceId(): string { return this.get('source').id; }
     get targetId(): string { return this.get('target').id; }
