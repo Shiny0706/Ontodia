@@ -4,8 +4,6 @@ import * as joint from 'jointjs';
 import * as Backbone from 'backbone';
 import { hcl } from 'd3-color';
 
-import { each } from 'lodash';
-
 import { Property } from '../data/model';
 
 import { TemplateProps } from '../customization/props';

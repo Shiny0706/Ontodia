@@ -453,7 +453,10 @@ export class DiagramView extends Backbone.Model {
                 onClose: () => {
                     this.classifierSelectionMenu.remove();
                     this.classifierSelectionMenu = undefined;
-                }
+                },
+                cancelRegimeInstance: () => {
+                    this.trigger('state:regimeInstanceCancelled');
+                },
             });
         }).catch(error => {
             this.trigger('state:endLoadConceptRelations', error);

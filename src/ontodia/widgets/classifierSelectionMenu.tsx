@@ -11,8 +11,9 @@ import { ConceptRelationsBox } from './conceptRelationsBox';
 export interface ClassifierSelectionMenuOptions {
     paper: joint.dia.Paper;
     view: DiagramView;
-    elements: Dictionary<ElementModel>
+    elements: Dictionary<ElementModel>;
     onClose: () => void;
+    cancelRegimeInstance: () => void;
 }
 
 export class ClassifierSelectionMenu {
@@ -51,7 +52,10 @@ export class ClassifierSelectionMenu {
             connectionData: connectionData,
             state: this.state,
             onButtonSavePressed: this.saveClassifierSelection.bind(this),
-            onButtonCancelPressed: this.options.onClose,
+            onButtonCancelPressed: () => {
+                this.options.cancelRegimeInstance();
+                this.options.onClose();
+            },
             addDirectLink: (e: DragEvent) =>  {
                 this.updateLinksBox(e, this.markup.directRelationsBox);
             },
@@ -65,7 +69,7 @@ export class ClassifierSelectionMenu {
     };
 
     private updateLinksBox(e: DragEvent, targetComponent: ConceptRelationsBox) {
-        let {elementIds, source} = ClassifierSelectionMenu.parseDataTransfer(e);
+        let {elementIds, source} = parseDataTransfer(e);
         if(! elementIds || !source) {
             return;
         }
@@ -95,23 +99,6 @@ export class ClassifierSelectionMenu {
         });
     }
 
-    private static parseDataTransfer(e: DragEvent): {elementIds: string[], source: string} {
-        e.preventDefault();
-        let dataTransfer = undefined;
-        try {
-            // Elements dragged from filter panel
-            dataTransfer = JSON.parse(e.dataTransfer.getData('application/x-ontodia-elements'));
-        } catch (ex) {
-            try {
-                dataTransfer = JSON.parse(e.dataTransfer.getData('text')); // IE fix
-            } catch (ex) {
-                console.error(ex);
-            }
-        }
-        if (!dataTransfer) { return {elementIds: undefined, source: undefined}; }
-        return {elementIds: dataTransfer.elementIds, source: dataTransfer.source};
-    }
-
     remove() {
         this.handler.stopListening();
         ReactDOM.unmountComponentAtNode(this.container);
@@ -120,32 +107,31 @@ export class ClassifierSelectionMenu {
 
     private saveClassifierSelection() {
         if(this.markup.directRelationsBox.state.items.length == 0) {
-            alert("Please select a classifier direct links");
-        } else {
-            let directLinkIds: string[] = [];
-            let reverseLinkIds: string[] = [];
-            each(this.markup.directRelationsBox.state.items, item => {
-               directLinkIds.push(item.id);
-            });
-            each(this.markup.reverseRelationsBox.state.items, item => {
-               reverseLinkIds.push(item.id);
-            });
-            this.view.model.setClassifierLinks(directLinkIds, reverseLinkIds);
-            let classId: string = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept";
-            let dataProvider = this.view.model.dataProvider;
-
-
-
-            Promise.all<ConceptModel[]>([
-                dataProvider.reverseInstanceConceptsTree(classId, directLinkIds),
-                dataProvider.propertyCountOfIndividuals(classId)
-                ])
-                .then(([instanceConceptsTree, propertyCount]) => {
-                    this.view.model.setConceptTree(instanceConceptsTree, propertyCount);
-                    this.options.onClose();
-                }) ;
-
+            alert("Please select a classifiers");
+            return;
         }
+
+        let directLinkIds: string[] = [];
+        let reverseLinkIds: string[] = [];
+        each(this.markup.directRelationsBox.state.items, item => {
+           directLinkIds.push(item.id);
+        });
+        each(this.markup.reverseRelationsBox.state.items, item => {
+           reverseLinkIds.push(item.id);
+        });
+
+        let dataProvider = this.view.model.dataProvider;
+
+        Promise.all<ConceptModel[]>([
+            dataProvider.instanceConceptsTree(directLinkIds, reverseLinkIds),
+            dataProvider.propertyCountOfIndividuals()
+            ])
+            .then(([instanceConceptsTree, propertyCount]) => {
+                this.view.model.setConceptTree(instanceConceptsTree, propertyCount);
+                this.options.onClose();
+            }) ;
+
+
     }
 }
 
@@ -175,8 +161,6 @@ export class ClassifierSelectionMenuMarkup extends React.Component<ClassifierSel
         this.render();
     }
 
-
-    //
     render() {
         return (
             <div className={CLASS_NAME}>
@@ -195,7 +179,7 @@ export class ClassifierSelectionMenuMarkup extends React.Component<ClassifierSel
                         <div className={`${CLASS_NAME}__links-panels__selected__direct-links`}>
                             <ConceptRelationsBox
                                 items=undefined
-                                title="Direct classifying relations"
+                                title="Classifiers"
                                 view={this.props.view}
                                 id="direct-links"
                                 onDragDrop={this.props.addDirectLink}
@@ -204,7 +188,7 @@ export class ClassifierSelectionMenuMarkup extends React.Component<ClassifierSel
                         <div className={`${CLASS_NAME}__links-panels__selected__reverse-links`}>
                             <ConceptRelationsBox
                                 items=undefined
-                                title ="Inverse classifying relations"
+                                title ="Inverse classifiers"
                                 view={this.props.view}
                                 id="reverse-links"
                                 onDragDrop={this.props.addReverseLink}
@@ -219,5 +203,22 @@ export class ClassifierSelectionMenuMarkup extends React.Component<ClassifierSel
             </div>
         );
     }
+}
+
+function parseDataTransfer(e: DragEvent): {elementIds: string[], source: string} {
+    e.preventDefault();
+    let dataTransfer = undefined;
+    try {
+        // Elements dragged from filter panel
+        dataTransfer = JSON.parse(e.dataTransfer.getData('application/x-ontodia-elements'));
+    } catch (ex) {
+        try {
+            dataTransfer = JSON.parse(e.dataTransfer.getData('text')); // IE fix
+        } catch (ex) {
+            console.error(ex);
+        }
+    }
+    if (!dataTransfer) { return {elementIds: undefined, source: undefined}; }
+    return {elementIds: dataTransfer.elementIds, source: dataTransfer.source};
 }
 
