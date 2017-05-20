@@ -3,7 +3,7 @@ import { ComponentClass } from 'react';
 import { Dictionary, Property } from '../data/model';
 
 export type TypeStyleResolver = (types: string[], recentlyExtracted?: boolean) => CustomTypeStyle | undefined;
-export type LinkStyleResolver = (type: string) => LinkStyle | undefined;
+export type LinkStyleResolver = (type: string, directLink: boolean) => LinkStyle | undefined;
 export type TemplateResolver = (types: string[]) => ElementTemplate | undefined;
 
 export interface CustomTypeStyle {
@@ -61,6 +61,7 @@ export interface LinkMarkerStyle {
     fill?: string;
     stroke?: string;
     strokeWidth?: string;
+    strokeDashArray?: string;
     d?: string;
     width?: number;
     height?: number;

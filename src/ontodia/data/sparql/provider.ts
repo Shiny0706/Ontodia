@@ -280,7 +280,7 @@ export class SparqlDataProvider implements DataProvider {
             WHERE {
               ?id a owl:Class.
               OPTIONAL {
-                ?property rdfs:domain ?id
+                ?property rdfs:domain ?id 
               }
             } GROUP BY ?id
         `;
@@ -295,7 +295,7 @@ export class SparqlDataProvider implements DataProvider {
             WHERE {
               ?id a ${classURI}.
               OPTIONAL {
-                ?property ?link ?id
+                ?id ?link ?property
               }
             } GROUP BY ?id
         `;

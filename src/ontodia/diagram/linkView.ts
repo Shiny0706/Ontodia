@@ -46,8 +46,7 @@ export class LinkView extends joint.dia.LinkView {
         const linkTypeId: string = this.model.get('typeId');
         const typeModel = this.view.model.getLinkType(linkTypeId);
 
-        const style = this.view.getLinkStyle(this.model.get('typeId'));
-        merge(style, {connection: {'stroke-dasharray': this.model.layoutOnly ? '5,5' : null}});
+        const style = this.view.getLinkStyle(this.model.get('typeId'), this.model.get('directLink'));
 
         let linkAttributes: joint.dia.LinkAttributes = {
             labels: style.labels,

@@ -19,6 +19,7 @@ export interface LinkModel {
     linkTypeId: string;
     sourceId: string;
     targetId: string;
+    directLink: boolean;
 }
 
 export interface ClassModel {
@@ -72,4 +73,10 @@ export interface ConceptModel {
     indirectSubConcepts: ConceptModel[];
     subKeyConcepts: ConceptModel[];
     presentOnDiagram?: boolean;
+}
+
+
+export interface BFSConceptModel {
+    id: string;
+    checked: boolean;
 }

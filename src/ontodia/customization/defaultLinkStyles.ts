@@ -11,10 +11,11 @@ const LINK_SUB_CLASS_OF: LinkStyle = {
     },
 };
 
-const LINK_INDIRECT_SUB_CLASS_OF: LinkStyle = {
+const LINK_INDIRECT_RELATION: LinkStyle = {
     connection: {
-        'stroke-dasharray': '10,10',
         stroke: '#f8a485',
+        'stroke-width': 2,
+        'stroke-dasharray': '5,5',
     },
     markerTarget: {
         fill: '#f8a485',
@@ -56,17 +57,21 @@ const LINK_TYPE_OF: LinkStyle = {
 };
 
 export const DefaultLinkStyleBundle: LinkStyleResolver[] = [
-    type => {
+    (type, directLink)  => {
         if (type === 'http://www.w3.org/2000/01/rdf-schema#subClassOf') {
-            return LINK_SUB_CLASS_OF;
-        } else if (type === 'http://www.w3.org/2000/01/rdf-schema#indirectSubClassOf') {
-            return LINK_INDIRECT_SUB_CLASS_OF;
+            if(directLink) {
+                return LINK_SUB_CLASS_OF;
+            } else {
+                return LINK_INDIRECT_RELATION;
+            }
         } else if (type === 'http://www.w3.org/2000/01/rdf-schema#domain') {
             return LINK_DOMAIN;
         } else if (type === 'http://www.w3.org/2000/01/rdf-schema#range') {
             return LINK_RANGE;
         } else if (type === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type') {
             return LINK_TYPE_OF;
+        } else if (type === 'http://www.semanticweb.org/tuyenhuynh/ontologies/2017/1/kce#hasRelationWith') {
+            return LINK_INDIRECT_RELATION;
         } else {
             return undefined;
         }
