@@ -69,6 +69,9 @@ export class Workspace extends Component<Props, State> {
                 onZoomOut: this.zoomOut,
                 onZoomToFit: this.zoomToFit,
                 onPrint: this.print,
+                onPreviousKCEView: () => {
+                    this.diagram.previousKCEView();
+                },
                 onExportSVG: this.exportSvg,
                 onExportPNG: this.exportPng,
                 onShare: this.props.onShareDiagram ? () => this.props.onShareDiagram(this) : undefined,
@@ -82,7 +85,6 @@ export class Workspace extends Component<Props, State> {
                 onEditAtMainSite: () => this.props.onEditAtMainSite(this),
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
-                isIntegratingMode: true,
                 onVisualizeWithKCE: conceptCount => this.diagram.visualizeKeyConcepts(conceptCount),
                 onClearPaper: () => this.diagram.clearPaper(),
                 onChangeRegime: this.changeRegime,

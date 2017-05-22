@@ -14,12 +14,12 @@ export interface Props {
     onExportSVG: (link: HTMLAnchorElement) => void;
     onExportPNG: (link: HTMLAnchorElement) => void;
     onPrint: () => void;
+    onPreviousKCEView: () => void;
     onShare?: () => void;
     onChangeLanguage: (language: string) => void;
     onShowTutorial: () => void;
     isEmbeddedMode?: boolean;
     isDiagramSaved?: boolean;
-    isIntegratingMode?: boolean;
     onVisualizeWithKCE?: (conceptCount: number) => void;
     onClearPaper: void;
     onChangeRegime: (regime: string) => void;
@@ -61,11 +61,11 @@ export class EditorToolbar extends React.Component<Props, State> {
 
     private onVisualizeWithKCE = () => {
         this.props.onVisualizeWithKCE(this.state.conceptCount);
-    }
+    };
 
     private onConceptCountChange = (event: React.SyntheticEvent<HTMLInputElement>) => {
         this.setState({conceptCount: event.currentTarget.value});
-    }
+    };
 
     render() {
         const intro = '<h4>Toolbox</h4>' +
@@ -155,17 +155,25 @@ export class EditorToolbar extends React.Component<Props, State> {
                         <span className='fa fa-picture-o' aria-hidden='true' /> SVG
                     </button>
                     <button type='button' className='btn btn-default' id="clearPaper"
-                            title='Export diagram to other format' onClick={this.props.onClearPaper}>
+                            title='Clear paper area' onClick={this.props.onClearPaper}>
                         <span className='fa fa-trash' aria-hidden='true' /> Clear
                     </button>
+                    {(!nonEmbedded) ? (
                     <button type='button' className='btn btn-default'
                             title='Print diagram' onClick={this.props.onPrint}>
                         <span className='fa fa-print' aria-hidden='true' />
                     </button>
+                    ) : undefined}
                     {(nonEmbedded && this.props.onShare) ? btnShare : undefined}
                     {nonEmbedded ? btnHelp : undefined}
+                    {(nonEmbedded) ? (
+                        <button type='button' className='btn btn-default'
+                                title='Previous KCE View' onClick={this.props.onPreviousKCEView}>
+                            <span className='fa fa-undo' aria-hidden='true' />
+                        </button>
+                    ) : undefined}
                     <button type='button' className='btn btn-default'
-                            title='Export diagram as SVG' onClick={this.onVisualizeWithKCE}>
+                            title='Visualize Key Concepts' onClick={this.onVisualizeWithKCE}>
                         <span className='fa fa-key' aria-hidden='true' /> Visualize with KCE
                     </button>
                     <div className="btn-group">
