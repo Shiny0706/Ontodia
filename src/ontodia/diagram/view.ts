@@ -353,6 +353,7 @@ export class DiagramView extends Backbone.Model {
     }
 
     private selectedElement:Element;
+    private addedConceptsList: ConceptModel[][] = [];
 
     loadMoreConcepts(selectedElement: Element) {
         this.selectedElement = selectedElement;
@@ -400,6 +401,7 @@ export class DiagramView extends Backbone.Model {
                 el.set('recentlyExtracted', false);
             });
             this.recentlyExtractedElements = addedElements;
+            this.addedConceptsList.push(concepts);
         }
 
         this.model.removeVirtualLinks();
@@ -408,6 +410,23 @@ export class DiagramView extends Backbone.Model {
         this.model.createVirtualLinksBetweenVisualizedConcepts(this.visualizedConcepts);
         this.model.requestLinksOfType();
         this.model.storeBatchCommand();
+    }
+
+    previousKCEView() {
+        if(this.addedConceptsList.length > 0) {
+            let lastAddedConcepts = this.addedConceptsList.pop();
+            each(lastAddedConcepts, concept => {
+                let element = this.model.getElement(concept.id);
+                if(element) {
+                    element.remove();
+                }
+                concept.presentOnDiagram = false;
+            });
+            this.model.removeVirtualLinks();
+            this.visualizedConcepts.splice(-1, lastAddedConcepts.length);
+            this.model.createVirtualLinksBetweenVisualizedConcepts(this.visualizedConcepts);
+            this.model.requestLinksOfType();
+        }
     }
 
     visualizedConcepts: ConceptModel[] = [];
