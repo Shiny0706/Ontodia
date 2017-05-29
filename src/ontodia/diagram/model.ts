@@ -229,7 +229,7 @@ export class DiagramModel extends Backbone.Model {
     /**
      * Reset concept tree, remove virtual links
      */
-    resetActiveConceptsTree() {
+    setActiveConceptsTreeToClassConceptTree() {
         this.activeConceptTree = this.classConceptTree;
         this.resetConceptList();
         let path: ConceptModel[] = [];
@@ -450,17 +450,17 @@ export class DiagramModel extends Backbone.Model {
     /**
      * Create virtual links between key concepts
      */
-    public createVirtualLinksBetweenVisualizedConcepts(keyConcepts: ConceptModel[]) {
+    public createVirtualLinksBetweenVisualizedConcepts(concepts: ConceptModel[]) {
         let virtualLinks: LinkModel[] = [];
 
-        each(keyConcepts, concept => {
+        each(concepts, concept => {
             if(concept.parent.length) {
                 let sortedParents = sortBy(concept.allSuperConcepts, function(concept){
                     return -concept.level;
                 });
 
                 for(let i = 0; i < sortedParents.length; ++i) {
-                    if(keyConcepts.indexOf(sortedParents[i]) >= 0) {
+                    if(concepts.indexOf(sortedParents[i]) >= 0) {
                         let delta = concept.level - sortedParents[i].level;
                         if(delta > 1) {
                             virtualLinks.push(this.constructVirtualLink(concept.id, sortedParents[i].id, false));
@@ -539,37 +539,41 @@ export class DiagramModel extends Backbone.Model {
 
             let loop = true;
             let counter = 0;
-            while(loop) {
-                loop = false;
-                counter++;
 
-                // Calc contribution of each concept in bestConceptSet and average value of them
-                let avgContribution = this.calcContributionOfConcepts(bestConceptSet);
 
-                // Calc overallScore of each concept in bestConceptSet and average value of them
-                let avgOverallScore = this.calcOverallScoreOfConcepts(bestConceptSet);
 
+            // Calc contribution of each concept in bestConceptSet and average value of them
+            let avgContribution = this.calcContributionOfConcepts(bestConceptSet);
+
+            // Calc overallScore of each concept in bestConceptSet and average value of them
+            let avgOverallScore = this.calcOverallScoreOfConcepts(bestConceptSet);
+
+            // Find concept with the worst overall score
+            let worstOverallScoreConcept = this.findConceptWithWorstOverallScore(bestConceptSet);
+
+            // Remain concepts after taking best concepts
+            let remainConcepts: ConceptModel[] =  difference(this.concepts, bestConceptSet);
+
+            for (let i = 0; i < remainConcepts.length; ++i) {
                 // Find concept with the worst overall score
                 let worstOverallScoreConcept = this.findConceptWithWorstOverallScore(bestConceptSet);
-
+                // Exclude worst concept
                 let excludedWorstScoreConceptSet = difference(bestConceptSet, [worstOverallScoreConcept]);
 
-                // Remain concepts after taking best concepts
-                let remainConcepts: ConceptModel[] =  difference(this.concepts, bestConceptSet);
+                // Create new conceptSet to compare scores with current best concept set
+                let newConceptSet = union(excludedWorstScoreConceptSet, [remainConcepts[i]]);
 
-                for(let i = 0; i < remainConcepts.length && !loop; ++i) {
-                    let newConceptSet = union(excludedWorstScoreConceptSet, [remainConcepts[i]]);
+                // Calc contribution of all concepts in newConceptSet
+                let avgContribution1 = this.calcContributionOfConcepts(newConceptSet);
 
-                    // Calc contribution of all concepts in newConceptSet
-                    let avgContribution1 = this.calcContributionOfConcepts(newConceptSet);
+                // Calc overallScore of all concepts in newConceptSet
+                let avgOverallScore1 = this.calcOverallScoreOfConcepts(newConceptSet);
 
-                    // Calc overallScore of all concepts in newConceptSet
-                    let avgOverallScore1 = this.calcOverallScoreOfConcepts(newConceptSet);
-
-                    if(avgOverallScore1 > avgOverallScore && avgContribution1 >= avgContribution) {
-                        loop = true;
-                        bestConceptSet = newConceptSet;
-                    }
+                // Compare score of two sets
+                if(avgOverallScore1 > avgOverallScore && avgContribution1 >= avgContribution) {
+                    bestConceptSet = newConceptSet;
+                    avgContribution = avgContribution1;
+                    avgOverallScore = avgOverallScore1;
                 }
             }
 
