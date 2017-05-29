@@ -17,6 +17,7 @@ export type IgnoreCommandHistory = { ignoreCommandManager?: boolean };
 export type PreventLinksLoading = { preventLoading?: boolean; };
 
 export const HAS_RELATION_WITH_IRI = 'http://www.semanticweb.org/tuyenhuynh/ontologies/2017/1/kce#hasRelationWith';
+export const IS_A_IRI = 'http://www.semanticweb.org/tuyenhuynh/ontologies/2017/1/kce#is-a';
 export const SUB_CLASS_OF_IRI = 'http://www.w3.org/2000/01/rdf-schema#subClassOf';
 export const THING_IRI = "http://www.w3.org/2002/07/owl#Thing";
 
@@ -493,8 +494,15 @@ export class DiagramModel extends Backbone.Model {
     }
 
     private constructVirtualLink (sourceId: string, targetId: string, directLink: boolean) : LinkModel {
+        let regime: string = this.get('regime');
+        let linkTypeId: string;
+        if(regime === 'individual') {
+            linkTypeId = targetId === THING_IRI ? IS_A_IRI: HAS_RELATION_WITH_IRI;
+        } else {
+            linkTypeId = SUB_CLASS_OF_IRI;
+        }
         return {
-            linkTypeId: this.get('regime') === 'individual' ? HAS_RELATION_WITH_IRI: SUB_CLASS_OF_IRI,
+            linkTypeId: linkTypeId,
             sourceId: sourceId,
             targetId: targetId,
             directLink: directLink,
