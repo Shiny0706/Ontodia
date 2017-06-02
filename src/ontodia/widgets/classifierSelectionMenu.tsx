@@ -106,7 +106,8 @@ export class ClassifierSelectionMenu {
     }
 
     private saveClassifierSelection() {
-        if(this.markup.directRelationsBox.state.items.length == 0) {
+        if(this.markup.directRelationsBox.state.items.length == 0 
+            && this.markup.reverseRelationsBox.state.items.length == 0) {
             alert("Please select a classifiers");
             return;
         }

@@ -38,10 +38,6 @@ export class ConceptRelationsBox extends React.Component<ConceptRelationsBoxProp
         }
     };
 
-    componentDidMount() {
-        ReactDOM.findDOMNode(this).addEventListener('drop', this.onDragDrop);
-    }
-
     componentWillUnmount() {
         ReactDOM.findDOMNode(this).removeEventListener('drop', this.onDragDrop);
     }
@@ -64,7 +60,7 @@ export class ConceptRelationsBox extends React.Component<ConceptRelationsBoxProp
             {items.map((model, index) => <ListElementView key={index}
                 model={model}
                 view={this.props.view}
-                disabled={Boolean(this.props.view.model.getElement(model.id))}
+                disabled={Boolean(this.props.view.getModel().getElement(model.id))}
                 selected={this.state.selectedItems[model.id] || false}
                 onClick={() => this.setState({
                     selectedItems: {
@@ -88,7 +84,7 @@ export class ConceptRelationsBox extends React.Component<ConceptRelationsBoxProp
 
     componentDidMount() {
         this.listener.listenTo(this.props.view, 'change:language', () => this.forceUpdate());
-        this.listener.listenTo(this.props.view.model.cells, 'add remove reset', () => {
+        this.listener.listenTo(this.props.view.getModel().cells, 'add remove reset', () => {
             const selectedItems: Dictionary<boolean> = {...this.state.selectedItems};
             for (const id of Object.keys(selectedItems)) {
                 if (selectedItems[id] && this.props.view.model.getElement(id)) {

@@ -128,6 +128,10 @@ export class DiagramView extends Backbone.Model {
         });
     }
 
+    getModel() : DiagramModel {
+        return this.model;
+    }
+
     public clearPaper() {
         this.model.graph.trigger('batch:start');
         let elements = this.model.elements;
@@ -177,7 +181,7 @@ export class DiagramView extends Backbone.Model {
         if(regime === 'individual') {
             this.showClassifierSelectionMenu();
         } else {
-            this.model.resetActiveConceptsTree();
+            this.model.setActiveConceptsTreeToClassConceptTree();
         }
     }
 
@@ -413,6 +417,7 @@ export class DiagramView extends Backbone.Model {
     }
 
     previousKCEView() {
+
         if(this.addedConceptsList.length > 0) {
             let lastAddedConcepts = this.addedConceptsList.pop();
             each(lastAddedConcepts, concept => {

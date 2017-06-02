@@ -3,7 +3,7 @@ import {
 } from './model';
 
 export interface DataProvider {
-    classTree(): Promise<ClassModel[]>;
+    classTree(): Promise<[ClassModel[], ConceptModel]>;
 
     classInfo(params: {
         classIds: string[];

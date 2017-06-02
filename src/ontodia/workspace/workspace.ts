@@ -86,7 +86,6 @@ export class Workspace extends Component<Props, State> {
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
                 onVisualizeWithKCE: conceptCount => this.diagram.visualizeKeyConcepts(conceptCount),
-                onClearPaper: () => this.diagram.clearPaper(),
                 onChangeRegime: this.changeRegime,
             }),
         } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
@@ -119,7 +118,7 @@ export class Workspace extends Component<Props, State> {
             // this.markup.props.toolbar.setState({regime: 'class'});
         });
 
-        this.diagram.listenTo(this.diagram, 'action:center', (element) => {
+        this.diagram.listenTo(this.diagram, 'action:center', (element: Element) => {
             if(element) {
                 let {x, y} = element.position();
                 let {width, height} = this.markup.paperArea.getPaperSize();
