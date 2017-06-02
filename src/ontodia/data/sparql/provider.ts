@@ -18,13 +18,13 @@ import {
     getPropertyInfo,
     getPropertyCountOfConcepts,
     getInstanceConceptsTree,
-    getReverseInstanceConceptsTree,
 } from './responseHandler';
 import {
     SparqlResponse, ClassBinding, ElementBinding, LinkBinding,
     LinkTypeBinding, LinkTypeInfoBinding, ElementImageBinding,
-    PropertyBinding, ConceptBinding,
+    PropertyBinding,
 } from './sparqlModels';
+import Config from './stardogConfig';
 
 const DEFAULT_PREFIX =
 `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -33,10 +33,7 @@ const DEFAULT_PREFIX =
  PREFIX my:   <http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/>
 ` + '\n\n';
 
-const CONCEPT_URI = escapeIri("http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/Concept");
-const ASSOCIATE_URI = escapeIri("http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/associates");
-const REPRESENTED_URI = escapeIri("http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/representedIn");
-const RELATION_BETWEEN_CONCEPTS_URI = escapeIri("http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/relationBetweenConcepts");
+
 
 export interface SparqlDataProviderOptions {
     endpointUrl: string;
@@ -47,7 +44,7 @@ export interface SparqlDataProviderOptions {
 export class SparqlDataProvider implements DataProvider {
     constructor(private options: SparqlDataProviderOptions) {}
 
-    classTree(): Promise<ClassModel[]> {
+    classTree(): Promise<[ClassModel[], ConceptModel]> {
         const query = DEFAULT_PREFIX + `
             SELECT ?class ?instcount ?label ?parent
             WHERE {
@@ -346,26 +343,6 @@ function escapeIri(iri: string) {
     return `<${iri}>`;
 }
 
-export function getConceptAndConceptRepresentationOfResource(endpoint: String){
-    let query = DEFAULT_PREFIX + `
-        SELECT DISTINCT ?source ?type ?target
-        WHERE {
-            {
-                ?source a ${CONCEPT_URI}.
-                ?conceptRep ?type ?source.
-                ?type rdfs:subPropertyOf ${ASSOCIATE_URI}.
-                ?conceptRep ${REPRESENTED_URI} ?target.
-            }
-            UNION
-            {
-                ?source ?type ?target.
-                ?type rdfs:subPropertyOf ${RELATION_BETWEEN_CONCEPTS_URI}
-            }
-        }
-        `;
-    return executeSparqlQuery<ElementBinding>(endpoint, query).then(getLinksInfo);
-}
-
 export function sparqlExtractLabel(subject: string, label: string): string {
     return  `
         BIND ( str( ${subject} ) as ?uriStr)
@@ -387,7 +364,7 @@ export function executeSparqlQuery<Binding>(endpoint: string, query: string) {
             contentType: 'application/sparql-query',
             headers: {
                 "Accept": 'application/sparql-results+json',
-                "Authorization": "Basic " + btoa('admin' + ":" + 'admin')
+                "Authorization": "Basic " + btoa(Config.USERNAME + ":" + Config.PASSWORD)
             },
             data: query,
             success: result => resolve(result),

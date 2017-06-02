@@ -21,7 +21,6 @@ export interface Props {
     isEmbeddedMode?: boolean;
     isDiagramSaved?: boolean;
     onVisualizeWithKCE?: (conceptCount: number) => void;
-    onClearPaper: void;
     onChangeRegime: (regime: string) => void;
 }
 
@@ -153,10 +152,6 @@ export class EditorToolbar extends React.Component<Props, State> {
                     <button type='button' className='btn btn-default'
                             title='Export diagram as SVG' onClick={this.onExportSVG}>
                         <span className='fa fa-picture-o' aria-hidden='true' /> SVG
-                    </button>
-                    <button type='button' className='btn btn-default' id="clearPaper"
-                            title='Clear paper area' onClick={this.props.onClearPaper}>
-                        <span className='fa fa-trash' aria-hidden='true' /> Clear
                     </button>
                     {(!nonEmbedded) ? (
                     <button type='button' className='btn btn-default'
