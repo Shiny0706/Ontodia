@@ -1,6 +1,5 @@
 import { Component, createElement, ReactElement} from 'react';
 import * as Backbone from 'backbone';
-import * as joint from 'jointjs';
 
 import {DiagramModel} from '../diagram/model';
 import { Link, FatLinkType } from '../diagram/elements';
@@ -116,23 +115,6 @@ export class Workspace extends Component<Props, State> {
 
         this.diagram.listenTo(this.diagram, 'state:regimeInstanceCancelled', () => {
             // this.markup.props.toolbar.setState({regime: 'class'});
-        });
-
-        this.diagram.listenTo(this.diagram, 'action:center', (element: Element) => {
-            if(element) {
-                let {x, y} = element.position();
-                let {width, height} = this.markup.paperArea.getPaperSize();
-                let centerX = width/2, centerY = height/2;
-                let dx = centerX - x, dy = centerY - y;
-                for(const el of this.model.elements) {
-                    let pos = el.position();
-                    el.transition('position', {x: pos.x + dx, y: pos.y + dy}, {
-                        delay: 0,
-                        duration: 0,
-                        valueFunction: joint.util.interpolate.object
-                    });
-                }
-            }
         });
 
         // Create links toolbox
