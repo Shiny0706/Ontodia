@@ -63,7 +63,10 @@ export class EditorToolbar extends React.Component<Props, State> {
     };
 
     private onConceptCountChange = (event: React.SyntheticEvent<HTMLInputElement>) => {
-        this.setState({conceptCount: event.currentTarget.value});
+        this.setState({conceptCount: Number(event.currentTarget.value),
+            showModal: this.state.showModal,
+            regime: this.state.regime,
+        });
     };
 
     render() {
