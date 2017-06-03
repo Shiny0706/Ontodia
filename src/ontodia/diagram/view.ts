@@ -61,13 +61,12 @@ export class DiagramView extends Backbone.Model {
     private typeStyleResolvers: TypeStyleResolver[];
     private linkStyleResolvers: LinkStyleResolver[];
     private templatesResolvers: TemplateResolver[];
-    private model: DiagramModel;
 
     paper: joint.dia.Paper;
     connectionsMenu: ConnectionsMenu;
     isAPathMenu: IsAPathMenu;
 
-    private recentlyExtractedElements: Element[];
+    recentlyExtractedElements: Element[];
 
     readonly selection = new Backbone.Collection<Element>();
 
@@ -122,14 +121,6 @@ export class DiagramView extends Backbone.Model {
         this.listenTo(this.model, 'state:dataLoaded', () => {
             this.model.resetHistory();
         });
-
-        this.listenTo(this, 'state:layoutForced', () => {
-            this.trigger('action:center', this.selectedElement);
-        });
-    }
-
-    getModel() : DiagramModel {
-        return this.model;
     }
 
     public clearPaper() {
@@ -270,9 +261,10 @@ export class DiagramView extends Backbone.Model {
         this.listenTo(this.paper, 'cell:mouseover', (cellView: joint.dia.CellView, evt: MouseEvent) => {
             if(!this.isAPathMenu) {
                 if (cellView.model instanceof joint.dia.Link) {
-                    let shouldShow = (cellView.model.typeId === SUB_CLASS_OF_IRI
-                        || cellView.model.typeId === HAS_RELATION_WITH_IRI)
-                        && !cellView.model.directLink;
+                    let link : Link = cellView.model as Link;
+                    let shouldShow = (link.typeId === SUB_CLASS_OF_IRI
+                        || link.typeId === HAS_RELATION_WITH_IRI)
+                        && !link.directLink;
                     if(shouldShow) {
                         this.showIsAPath(cellView);
                     }
@@ -282,8 +274,9 @@ export class DiagramView extends Backbone.Model {
 
         this.listenTo(this.paper, 'cell:mouseout', (cellView: joint.dia.CellView, evt: MouseEvent) => {
             if (cellView.model instanceof joint.dia.Link) {
-                let shouldRemove = (cellView.model.typeId === SUB_CLASS_OF_IRI ||
-                cellView.model.typeId === HAS_RELATION_WITH_IRI) && this.isAPathMenu;
+                let link : Link = cellView.model as Link;
+                let shouldRemove = (link.typeId === SUB_CLASS_OF_IRI ||
+                link.typeId === HAS_RELATION_WITH_IRI) && this.isAPathMenu;
                 if(shouldRemove) {
                     this.isAPathMenu.remove();
                     this.isAPathMenu = undefined;

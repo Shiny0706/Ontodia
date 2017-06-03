@@ -1,7 +1,7 @@
 import {each} from 'lodash';
 import {
     RdfLiteral, SparqlResponse, ClassBinding, ElementBinding, LinkBinding,
-    ElementImageBinding, LinkTypeBinding, LinkTypeInfoBinding, PropertyBinding, ConceptBinding,
+    ElementImageBinding, LinkTypeBinding, LinkTypeInfoBinding, PropertyBinding, ConceptBinding, PropertyCountBinding,
 } from './sparqlModels';
 import {
     Dictionary, LocalizedString, LinkType, ClassModel, ElementModel, LinkModel, Property, PropertyModel, ConceptModel, PropertyCount
@@ -107,9 +107,10 @@ export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassMode
     if (!thingNode) {
         thingNode = {
             id: THING_URI,
-            children: [],
+            children: [] as ClassModel[],
             label: { values: [getLocalizedString(undefined, THING_URI)] },
             count: 0,
+            parent: undefined,
         };
         tree.push(thingNode);
     }
@@ -205,7 +206,7 @@ function updateConceptTree(rootConcept: ConceptModel) {
 }
 
 function getConceptFromClassModel(classModel: ClassModel): ConceptModel {
-    let concept = {
+    return{
         id: classModel.id,
         children: [],
         label: classModel.label,
@@ -222,14 +223,13 @@ function getConceptFromClassModel(classModel: ClassModel): ConceptModel {
         propertyCount: 0,
         score: 0,
         overallScore: 0,
-        covered: [],
+        covered: [] ,
         allSuperConcepts: [],
         allSubConcepts: [],
         indirectSubConcepts: [],
         subKeyConcepts: [],
         presentOnDiagram: false,
     };
-    return concept;
 }
 
 export function getInstanceConceptsTree(response: SparqlResponse<ConceptBinding>) : ConceptModel{
@@ -265,7 +265,6 @@ export function getInstanceConceptsTree(response: SparqlResponse<ConceptBinding>
                 childNode = createdTreeNodes[childNodeId];
             }
 
-            // TODO: need to check for repeating direct and reverse relation
             childNode.parent.push(createdTreeNodes[sNodeId]);
             createdTreeNodes[sNodeId].children.push(childNode);
         }
@@ -313,7 +312,7 @@ function getConceptModel(params: {id: string, label: RdfLiteral}) : ConceptModel
     if(params.label) {
         values.push(getLocalizedString(params.label, params.id));
     }
-    let result = {
+    return {
         id: params.id,
         children: [],
         label: {values: values},
@@ -336,9 +335,7 @@ function getConceptModel(params: {id: string, label: RdfLiteral}) : ConceptModel
         indirectSubConcepts: [],
         subKeyConcepts: [],
         presentOnDiagram: false,
-    }
-
-    return result;
+    };
 }
 
 export function getClassInfo(response: SparqlResponse<ClassBinding>): ClassModel[] {
@@ -360,9 +357,10 @@ export function getClassInfo(response: SparqlResponse<ClassBinding>): ClassModel
             const label = getLocalizedString(binding.label);
             classes[id] = {
                 id,
-                children: [],
+                children: [] as ClassModel[],
                 label: {values: label ? [label] : []},
                 count: getInstCount(binding.instcount),
+                parent: binding.parent ? binding.parent.value: undefined,
             };
         }
     }
@@ -484,7 +482,7 @@ export function getLinksTypesOf(response: SparqlResponse<LinkTypeBinding>): Link
  * @param response
  * @returns {PropertyCount[]}
  */
-export function getPropertyCountOfConcepts(response): PropertyCount[] {
+export function getPropertyCountOfConcepts(response: SparqlResponse<PropertyCountBinding>): PropertyCount[] {
     let propertyCounts: PropertyCount[] = [];
 
     let sparqlPropertyCounts = response.results.bindings;
@@ -584,9 +582,10 @@ export function getInstCount(instcount: RdfLiteral): number {
 export function getClassModel(node: ClassBinding): ClassModel {
     return {
         id: node.class.value,
-        children: [],
+        children: [] as ClassModel[],
         label: { values: [getLocalizedString(node.label, node.class.value)] },
         count: getInstCount(node.instcount),
+        parent: node.parent ? node.parent.value : undefined,
     };
 }
 
@@ -637,6 +636,7 @@ export function getLinkInfo(sLinkInfo: LinkBinding): LinkModel {
         linkTypeId: sLinkInfo.type.value,
         sourceId: sLinkInfo.source.value,
         targetId: sLinkInfo.target.value,
+        directLink: true,
     };
 }
 

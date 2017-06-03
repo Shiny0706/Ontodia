@@ -7,6 +7,7 @@ import DiagramView from '../diagram/view';
 import { chooseLocalizedText } from '../diagram/model';
 
 import { ConceptModel } from '../data/model';
+import {Link} from "../diagram/elements";
 
 export interface IsAPathMenuOptions {
     paper: joint.dia.Paper;
@@ -45,7 +46,9 @@ export class IsAPathMenu {
 
     private loadIsAPath() {
         this.state = 'loading';
-        this.superConcepts = this.view.model.getIsAPath(this.cellView.model.sourceId, this.cellView.model.targetId);
+        let link : Link = this.cellView.model as Link;
+        this.superConcepts = this.view.model.getIsAPath(link.sourceId, link.targetId);
+
         this.state = 'completed';
         this.render();
     }
