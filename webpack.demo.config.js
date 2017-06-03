@@ -8,13 +8,7 @@ var npmDir = path.join(__dirname, 'node_modules');
 
 module.exports = {
     entry: {
-        demo: path.join(__dirname, 'src', 'examples', 'demo.ts'),
         sparql: path.join(__dirname, 'src', 'examples', 'sparql.ts'),
-        sparqlConstruct: path.join(__dirname, 'src', 'examples', 'sparqlConstruct.ts'),
-        sparqlRDFGraph: path.join(__dirname, 'src', 'examples', 'sparqlRDFGraph.ts'),
-        styleCustomization: path.join(__dirname, 'src', 'examples', 'styleCustomization.ts'),
-        wikidata: path.join(__dirname, 'src', 'examples', 'wikidata.ts'),
-        wikidataGraph: path.join(__dirname, 'src', 'examples', 'wikidataGraph.ts'),
     },
     resolve: {
         extensions: ['', '.ts', '.tsx', '.webpack.js', '.web.js', '.js'],
@@ -39,44 +33,9 @@ module.exports = {
     },
     plugins: [
         new HtmlWebpackPlugin({
-            title: 'Ontodia Local Demo',
-            chunks: ['commons', 'demo'],
-            template: path.join(__dirname, 'src', 'examples', 'template.ejs'),
-        }),
-        new HtmlWebpackPlugin({
             filename: 'sparql.html',
             title: 'Ontodia SparQL',
             chunks: ['commons', 'sparql'],
-            template: path.join(__dirname, 'src', 'examples', 'template.ejs'),
-        }),
-        new HtmlWebpackPlugin({
-            filename: 'sparqlConstruct.html',
-            title: 'Ontodia SparQL Construct Demo',
-            chunks: ['commons', 'sparqlConstruct'],
-            template: path.join(__dirname, 'src', 'examples', 'template.ejs'),
-        }),
-        new HtmlWebpackPlugin({
-            filename: 'sparqlRDFGraph.html',
-            title: 'Ontodia SparQL RDF Graph Demo',
-            chunks: ['commons', 'sparqlRDFGraph'],
-            template: path.join(__dirname, 'src', 'examples', 'template.ejs'),
-        }),
-        new HtmlWebpackPlugin({
-            filename: 'styleCustomization.html',
-            title: 'Ontodia Style Customization Demo',
-            chunks: ['commons', 'styleCustomization', ],
-            template: path.join(__dirname, 'src', 'examples', 'template.ejs'),
-        }),
-        new HtmlWebpackPlugin({
-            filename: 'wikidata.html',
-            title: 'Ontodia Style Customization Demo',
-            chunks: ['commons', 'wikidata', ],
-            template: path.join(__dirname, 'src', 'examples', 'template.ejs'),
-        }),
-        new HtmlWebpackPlugin({
-            filename: 'wikidataGraph.html',
-            title: 'Ontodia Style Customization Demo',
-            chunks: ['commons', 'wikidataGraph', ],
             template: path.join(__dirname, 'src', 'examples', 'template.ejs'),
         }),
         new CommonsChunkPlugin('commons', 'commons.chunk.js'),
