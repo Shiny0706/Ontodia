@@ -32,7 +32,7 @@ export interface DataProvider {
 
     propertyCountOfIndividuals(): Promise<PropertyCount[]>;
 
-    instanceConceptsTree(classifierIds: string[], inverseClassifierIds: string[]): Promise<ConceptModel[]>;
+    instanceConceptsTree(classifierIds: string[], inverseClassifierIds: string[]): Promise<ConceptModel>;
 }
 
 export default DataProvider;

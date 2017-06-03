@@ -145,8 +145,8 @@ export class DiagramModel extends Backbone.Model {
         });
         this.listenTo(this.graph, 'remove', (cell: joint.dia.Cell) => {
             if (cell instanceof Link) {
-                const {typeId, sourceId, targetId} = cell;
-                this.removeLinkReferences({linkTypeId: typeId, sourceId, targetId});
+                const {typeId, sourceId, targetId, directLink} = cell;
+                this.removeLinkReferences({linkTypeId: typeId, sourceId, targetId, directLink});
             }
         });
     }
@@ -259,7 +259,7 @@ export class DiagramModel extends Backbone.Model {
         this.conceptsById = {};
         this.concepts = [];
 
-        let addConcept = (concept) => {
+        let addConcept = (concept: ConceptModel) => {
             this.conceptsById[concept.id] = concept;
             this.concepts.push(concept);
             each(concept.children, child => {
@@ -456,7 +456,7 @@ export class DiagramModel extends Backbone.Model {
 
         each(concepts, concept => {
             if(concept.parent.length) {
-                let sortedParents = sortBy(concept.allSuperConcepts, function(concept){
+                let sortedParents = sortBy(concept.allSuperConcepts, function(concept: ConceptModel){
                     return -concept.level;
                 });
 
@@ -539,25 +539,17 @@ export class DiagramModel extends Backbone.Model {
             this.keyConcepts = this.concepts;
         } else {
             // Sort concepts by score
-            this.concepts = sortBy(this.concepts,[function(concept) {
+            this.concepts = sortBy(this.concepts,[function(concept: ConceptModel) {
                return -concept.score;
             }]);
 
             let bestConceptSet: ConceptModel[] = take(this.concepts, n);
-
-            let loop = true;
-            let counter = 0;
-
-
 
             // Calc contribution of each concept in bestConceptSet and average value of them
             let avgContribution = this.calcContributionOfConcepts(bestConceptSet);
 
             // Calc overallScore of each concept in bestConceptSet and average value of them
             let avgOverallScore = this.calcOverallScoreOfConcepts(bestConceptSet);
-
-            // Find concept with the worst overall score
-            let worstOverallScoreConcept = this.findConceptWithWorstOverallScore(bestConceptSet);
 
             // Remain concepts after taking best concepts
             let remainConcepts: ConceptModel[] =  difference(this.concepts, bestConceptSet);
@@ -593,8 +585,8 @@ export class DiagramModel extends Backbone.Model {
 
     public loadMoreConcepts(conceptId: string) {
         let concept: ConceptModel = this.conceptsById[conceptId];
-        let unShownConcepts = filter(concept.allSubConcepts, function(subConcept) { return !subConcept.presentOnDiagram; });
-        unShownConcepts = sortBy(unShownConcepts,[function(concept) {
+        let unShownConcepts = filter(concept.allSubConcepts, function(subConcept: ConceptModel) { return !subConcept.presentOnDiagram; });
+        unShownConcepts = sortBy(unShownConcepts,[function(concept: ConceptModel) {
             return -concept.score;
         }]);
         return take(unShownConcepts, this.LOAD_AMOUNT);
@@ -638,21 +630,6 @@ export class DiagramModel extends Backbone.Model {
         return sumContribution/concepts.length;
     }
 
-    /**
-     * Calculate size of result when subtract 2 set
-     * @param firstSet
-     * @param secondSet
-     * @returns {number}
-     */
-    private calcSubtractionSize(firstSet: ConceptModel[], secondSet: ConceptModel[]): number {
-        let counter = 0;
-        each(firstSet, item =>  {
-            if(secondSet.indexOf(item) < 0) {
-                counter ++;
-            }
-        });
-        return counter;
-    }
 
     /**
      * Calc overall score of all class in set concepts
@@ -926,6 +903,7 @@ export class DiagramModel extends Backbone.Model {
                 label: { values: [{lang: '', text: uri2name(typeId)}] },
                 count: 0,
                 children: [],
+                parent: undefined,
             });
             this.classFetchingThread.startFetchingThread(typeId).then(typeIds => {
                 if (typeIds.length > 0) {

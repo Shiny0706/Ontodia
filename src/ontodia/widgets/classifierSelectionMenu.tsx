@@ -1,11 +1,10 @@
-import * as React from 'react';
 import * as joint from 'jointjs';
 import {difference, each} from "lodash";
 import * as Backbone from 'backbone';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { DiagramView } from '../diagram/view';
-import {Dictionary, ElementModel, ConceptModel} from '../data/model'
+import {Dictionary, ElementModel, ConceptModel, PropertyCount} from '../data/model'
 import { ConceptRelationsBox } from './conceptRelationsBox';
 
 export interface ClassifierSelectionMenuOptions {
@@ -33,7 +32,7 @@ export class ClassifierSelectionMenu {
         this.addLinks(options.elements);
     }
 
-    private addLinks(elements: Dictionary<Element>) {
+    private addLinks(elements: Dictionary<ElementModel>) {
         this.links = [];
         each(elements, element => {
             this.links.push(element);
@@ -47,7 +46,7 @@ export class ClassifierSelectionMenu {
         };
 
         ReactDOM.render(React.createElement(ClassifierSelectionMenuMarkup, {
-            ref: markup => {this.markup = markup},
+            ref: (markup:ClassifierSelectionMenuMarkup) => {this.markup = markup},
             view: this.options.view,
             connectionData: connectionData,
             state: this.state,
@@ -65,7 +64,7 @@ export class ClassifierSelectionMenu {
             restoreLink: (e: DragEvent) => {
                 this.updateLinksBox(e, this.markup.conceptRelationsBox);
             },
-        }), this.container);
+        } as ClassifierSelectionMenuMarkupProps), this.container);
     };
 
     private updateLinksBox(e: DragEvent, targetComponent: ConceptRelationsBox) {
@@ -123,16 +122,14 @@ export class ClassifierSelectionMenu {
 
         let dataProvider = this.view.model.dataProvider;
 
-        Promise.all<ConceptModel[]>([
+        Promise.all<ConceptModel, PropertyCount[]>([
             dataProvider.instanceConceptsTree(directLinkIds, reverseLinkIds),
             dataProvider.propertyCountOfIndividuals()
             ])
             .then(([instanceConceptsTree, propertyCount]) => {
                 this.view.model.setConceptTree(instanceConceptsTree, propertyCount);
                 this.options.onClose();
-            }) ;
-
-
+            });
     }
 }
 
@@ -179,7 +176,7 @@ export class ClassifierSelectionMenuMarkup extends React.Component<ClassifierSel
                     <div className={`${CLASS_NAME}__links-panels__selected`}>
                         <div className={`${CLASS_NAME}__links-panels__selected__direct-links`}>
                             <ConceptRelationsBox
-                                items=undefined
+                                items={[]}
                                 title="Classifiers"
                                 view={this.props.view}
                                 id="direct-links"
@@ -188,7 +185,7 @@ export class ClassifierSelectionMenuMarkup extends React.Component<ClassifierSel
                         </div>
                         <div className={`${CLASS_NAME}__links-panels__selected__reverse-links`}>
                             <ConceptRelationsBox
-                                items=undefined
+                                items={[]}
                                 title ="Inverse classifiers"
                                 view={this.props.view}
                                 id="reverse-links"

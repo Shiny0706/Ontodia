@@ -22,7 +22,7 @@ import {
 import {
     SparqlResponse, ClassBinding, ElementBinding, LinkBinding,
     LinkTypeBinding, LinkTypeInfoBinding, ElementImageBinding,
-    PropertyBinding,
+    PropertyBinding, PropertyCountBinding, ConceptBinding,
 } from './sparqlModels';
 import Config from './stardogConfig';
 
@@ -30,10 +30,7 @@ const DEFAULT_PREFIX =
 `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
  PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
  PREFIX owl:  <http://www.w3.org/2002/07/owl#>
- PREFIX my:   <http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/>
 ` + '\n\n';
-
-
 
 export interface SparqlDataProviderOptions {
     endpointUrl: string;
@@ -65,7 +62,7 @@ export class SparqlDataProvider implements DataProvider {
             this.options.endpointUrl, query).then(getClassTree);
     }
 
-    instanceConceptsTree(classifierIds: string[], inverseClassifierIds: string[]): Promise<ConceptModel[]> {
+    instanceConceptsTree(classifierIds: string[], inverseClassifierIds: string[]): Promise<ConceptModel> {
         const classifiers = classifierIds.map(escapeIri).join(', ');
         const inverseClassifiers = inverseClassifierIds.map(escapeIri).join(', ');
         const query = DEFAULT_PREFIX + `
@@ -95,7 +92,7 @@ export class SparqlDataProvider implements DataProvider {
               }
             }
         `;
-        return executeSparqlQuery<ClassBinding> (this.options.endpointUrl, query).then(getInstanceConceptsTree);
+        return executeSparqlQuery<ConceptBinding> (this.options.endpointUrl, query).then(getInstanceConceptsTree);
     }
 
     propertyInfo(params: { propertyIds: string[] }): Promise<Dictionary<PropertyModel>> {
@@ -266,7 +263,7 @@ export class SparqlDataProvider implements DataProvider {
               }
             } GROUP BY ?id
         `;
-        return executeSparqlQuery<>(
+        return executeSparqlQuery<PropertyCountBinding>(
             this.options.endpointUrl, query).then(getPropertyCountOfConcepts);
     }
 
@@ -280,7 +277,7 @@ export class SparqlDataProvider implements DataProvider {
               }
             } GROUP BY ?id
         `;
-        return executeSparqlQuery<>(
+        return executeSparqlQuery<PropertyCountBinding>(
             this.options.endpointUrl, query).then(getPropertyCountOfConcepts);
     }
 

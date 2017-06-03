@@ -12,10 +12,11 @@ export interface ConceptRelationsBoxProps {
     onDragDrop: (e: DragEvent) => void;
     onDragOver?: (e: DragEvent) => boolean;
     id: string;
+    items: ElementModel[];
 }
 
 export interface State {
-    items?: Array<ElementModel>;
+    items: Array<ElementModel>;
     selectedItems?: Dictionary<boolean>;
 }
 
@@ -27,20 +28,17 @@ export class ConceptRelationsBox extends React.Component<ConceptRelationsBoxProp
     constructor(props: ConceptRelationsBoxProps) {
         super(props);
         this.state = {
-            items: [],
+            items: props.items,
             selectedItems: {},
         };
     }
 
-    private onDragDrop = (e: DragEvent) => {
+    // TODO: type of e should be DragEvent
+    private onDragDrop = (e: Object) => {
         if (this.props.onDragDrop) {
-            this.props.onDragDrop(e);
+            this.props.onDragDrop(e as DragEvent);
         }
     };
-
-    componentWillUnmount() {
-        ReactDOM.findDOMNode(this).removeEventListener('drop', this.onDragDrop);
-    }
 
     render() {
         const className = `${CLASS_NAME}`;
@@ -48,31 +46,31 @@ export class ConceptRelationsBox extends React.Component<ConceptRelationsBoxProp
             <div className={className} onDrop={this.onDragDrop}>
                 <div className={`${CLASS_NAME}__title`}>{this.props.title}</div>
                 <div className={`${CLASS_NAME}__rest`}>
-                    {this.renderSearchResults()}
+                    {this.renderElements()}
                 </div>
             </div>
         );
     }
 
-    private renderSearchResults(): React.ReactElement<any> {
+    private renderElements(): React.ReactElement<any> {
         const items = this.state.items || [];
         return <ul className={`${CLASS_NAME}__results`}>
             {items.map((model, index) => <ListElementView key={index}
                 model={model}
                 view={this.props.view}
-                disabled={Boolean(this.props.view.getModel().getElement(model.id))}
+                disabled={Boolean(this.props.view.model.getElement(model.id))}
                 selected={this.state.selectedItems[model.id] || false}
                 onClick={() => this.setState({
                     selectedItems: {
                         ...this.state.selectedItems,
                         [model.id]: !this.state.selectedItems[model.id],
                     },
+                    items: this.state.items,
                 })}
                 onDragStart={e => {
                     const elementIds = Object.keys({...this.state.selectedItems, [model.id]: true});
                     try {
                         e.dataTransfer.setData('application/x-ontodia-elements', JSON.stringify({source: this.props.id, elementIds: elementIds }));
-
                     } catch (ex) { // IE fix
                         e.dataTransfer.setData('text', JSON.stringify({source: this.props.id, elementIds: elementIds }));
                     }
@@ -84,14 +82,14 @@ export class ConceptRelationsBox extends React.Component<ConceptRelationsBoxProp
 
     componentDidMount() {
         this.listener.listenTo(this.props.view, 'change:language', () => this.forceUpdate());
-        this.listener.listenTo(this.props.view.getModel().cells, 'add remove reset', () => {
+        this.listener.listenTo(this.props.view.model.cells, 'add remove reset', () => {
             const selectedItems: Dictionary<boolean> = {...this.state.selectedItems};
             for (const id of Object.keys(selectedItems)) {
                 if (selectedItems[id] && this.props.view.model.getElement(id)) {
                     delete selectedItems[id];
                 }
             }
-            this.setState({selectedItems});
+            this.setState({selectedItems, items: this.state.items});
         });
     }
 

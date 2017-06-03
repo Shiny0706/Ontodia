@@ -13,9 +13,6 @@ import { Element } from './elements';
 import { uri2name } from './model';
 import { DiagramView } from './view';
 
-const HAS_AUTHOR_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/hasAuthor";
-const HAS_RESOURCE_NAME_URI = "http://www.semanticweb.org/elenasarkisova/ontologies/2016/1/csample/hasResourceName";
-
 export interface Props {
     paper: joint.dia.Paper;
     view: DiagramView;
@@ -209,12 +206,7 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
         label +=  view.model.getSubConceptInfo(model.id);
         const {color, icon} = this.styleFor(model);
         const propsAsList = this.getPropertyTable();
-        let author = this.getProperty(propsAsList, HAS_AUTHOR_URI);
-        let resourceName = this.getProperty(propsAsList, HAS_RESOURCE_NAME_URI);
 
-        if(author !== undefined && resourceName !== undefined) {
-            label = resourceName.property.values[0].text + '/' + author.property.values[0].text;
-        }
         return {
             types,
             label,
@@ -226,17 +218,6 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
             props: model.template.properties,
             propsAsList,
         };
-    }
-
-    private getProperty(props: Array, id: string): string {
-        let prop = undefined; 
-        for(let i = 0; i < props.length; ++i) {
-            if(props[i].id === id) {
-                prop = props[i];
-                break;
-            }
-        }
-        return prop;
     }
 
     // Request for element's properties

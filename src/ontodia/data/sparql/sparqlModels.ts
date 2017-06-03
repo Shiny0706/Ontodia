@@ -75,3 +75,8 @@ export interface SparqlResponse<Binding> {
     head: { vars: string[] };
     results: { bindings: Binding[] };
 }
+
+export interface PropertyCountBinding {
+    count: RdfLiteral;
+    id: RdfIri;
+}

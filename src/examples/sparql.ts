@@ -39,9 +39,12 @@ function onWorkspaceMounted(workspace: Workspace) {
     });
 }
 
-let getParam = function (name) {
-    if(name=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search))
-        return decodeURIComponent(name[1]);
+let getParam = function (name: string) {
+    let match=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search);
+    if(match) {
+        return decodeURIComponent(match[1]);
+    }
+    return null;
 }
 
 const props: WorkspaceProps & ClassAttributes<Workspace> = {
