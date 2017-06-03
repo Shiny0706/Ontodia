@@ -91,7 +91,7 @@ export class WorkspaceMarkup extends React.Component<Props, void> {
         );
 
         let rightPanel = (
-            <ResizableSidebar dockSide={DockSide.Right} initiallyOpen = false
+            <ResizableSidebar dockSide={DockSide.Right}
                 onStartResize={() => this.untilMouseUp({
                     preventTextSelection: true,
                     horizontalResizing: true,
