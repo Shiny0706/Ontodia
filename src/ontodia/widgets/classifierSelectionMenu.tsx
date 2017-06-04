@@ -128,6 +128,8 @@ export class ClassifierSelectionMenu {
             ])
             .then(([instanceConceptsTree, propertyCount]) => {
                 this.view.model.setConceptTree(instanceConceptsTree, propertyCount);
+                this.view.model.setRegime('individual');
+                this.view.clearPaper();
                 this.options.onClose();
             });
     }

@@ -26,7 +26,6 @@ export interface Props {
 
 export interface State {
     showModal: boolean;
-    regime: string;
     conceptCount: number;
 }
 
@@ -34,10 +33,11 @@ const CLASS_NAME = 'ontodia-toolbar';
 
 export class EditorToolbar extends React.Component<Props, State> {
     private downloadImageLink: HTMLAnchorElement;
+    private regime: HTMLSelectElement;
 
     constructor(props: Props) {
         super(props);
-        this.state = {showModal: false, conceptCount: 16, regime: 'class'};
+        this.state = {showModal: false, conceptCount: 16};
     }
 
     private onChangeLanguage = (event: React.SyntheticEvent<HTMLSelectElement>) => {
@@ -64,9 +64,13 @@ export class EditorToolbar extends React.Component<Props, State> {
 
     private onConceptCountChange = (event: React.SyntheticEvent<HTMLInputElement>) => {
         this.setState({conceptCount: Number(event.currentTarget.value),
-            showModal: this.state.showModal,
-            regime: this.state.regime,
+            showModal: this.state.showModal
         });
+    };
+
+    public restoreClassRegime = () => {
+        this.regime.value = "class";
+        this.setState({showModal: this.state.showModal, conceptCount: this.state.conceptCount});
     };
 
     render() {
@@ -190,7 +194,7 @@ export class EditorToolbar extends React.Component<Props, State> {
                     </span>
                     <span className={`btn-group ${CLASS_NAME}__regime-selector`}>
                         {nonEmbedded ? <label><span>Regime</span></label> : undefined}
-                        <select defaultValue= {this.state.regime} onChange={this.onChangeRegime}>
+                        <select id="regime" ref={(regime) => {this.regime = regime;}} defaultValue= "class" onChange={this.onChangeRegime}>
                             <option value='class'>Extract classes</option>
                             <option value='individual'>Extract individuals</option>
                         </select>

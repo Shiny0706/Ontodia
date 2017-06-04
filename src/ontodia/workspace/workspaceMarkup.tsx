@@ -8,9 +8,10 @@ import { InstancesSearch, SearchCriteria } from '../widgets/instancesSearch';
 import { ResizableSidebar, DockSide } from './resizableSidebar';
 import { Accordion } from './accordion';
 import { AccordionItem } from './accordionItem';
+import {EditorToolbar} from "../widgets/toolbar";
 
 export interface Props {
-    toolbar: React.ReactElement<any>;
+    toolbar: EditorToolbar;
     view: DiagramView;
     isViewOnly?: boolean;
     isVisualization?: boolean;
