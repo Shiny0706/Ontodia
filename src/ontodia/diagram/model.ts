@@ -227,6 +227,13 @@ export class DiagramModel extends Backbone.Model {
         return {layoutData, linkSettings};
     }
 
+    setRegime(regime: string) {
+        this.set('regime', regime);
+        if(regime === 'class') {
+            this.setActiveConceptsTreeToClassConceptTree();
+        }
+    }
+
     /**
      * Reset concept tree, remove virtual links
      */

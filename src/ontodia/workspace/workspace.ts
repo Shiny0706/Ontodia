@@ -14,10 +14,11 @@ import { LinkTypesToolboxShell, LinkTypesToolboxModel } from '../widgets/linksTo
 import { dataURLToBlob } from '../viewUtils/toSvg';
 
 import { EditorToolbar, Props as EditorToolbarProps } from '../widgets/toolbar';
-import { SearchCriteria } from '../widgets/instancesSearch';
+import {SearchCriteria, createRequest} from '../widgets/instancesSearch';
 import { showTutorial, showTutorialIfNotSeen } from '../tutorial/tutorial';
 
 import { WorkspaceMarkup, Props as MarkupProps } from './workspaceMarkup';
+import {ClassifierSelectionMenu} from "../widgets/classifierSelectionMenu";
 
 export interface Props {
     onSaveDiagram?: (workspace: Workspace) => void;
@@ -40,6 +41,8 @@ export class Workspace extends Component<Props, State> {
     };
 
     private markup: WorkspaceMarkup;
+    private toolbar: EditorToolbar;
+    private classifierSelectionMenu: ClassifierSelectionMenu;
 
     private readonly model: DiagramModel;
     private readonly diagram: DiagramView;
@@ -62,6 +65,7 @@ export class Workspace extends Component<Props, State> {
             searchCriteria: this.state.criteria,
             onSearchCriteriaChanged: criteria => this.setState({criteria}),
             toolbar: createElement<EditorToolbarProps>(EditorToolbar, {
+                ref: (toolbar: EditorToolbar) => {this.toolbar = toolbar},
                 onUndo: this.undo,
                 onRedo: this.redo,
                 onZoomIn: this.zoomIn,
@@ -84,10 +88,33 @@ export class Workspace extends Component<Props, State> {
                 onEditAtMainSite: () => this.props.onEditAtMainSite(this),
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
-                onVisualizeWithKCE: conceptCount => this.diagram.visualizeKeyConcepts(conceptCount),
+                onVisualizeWithKCE: (conceptCount: number) => this.diagram.visualizeKeyConcepts(conceptCount),
                 onChangeRegime: this.changeRegime,
             }),
         } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
+    }
+
+    private showClassifierSelectionMenu() {
+        this.model.trigger('state:beginLoadConceptRelations');
+        let criterion: SearchCriteria = {elementTypeId: "http://www.w3.org/2002/07/owl#ObjectProperty"};
+        let request = createRequest(criterion, this.diagram.getLanguage());
+        this.model.dataProvider.filter(request).then(elements => {
+            this.model.trigger('state:endLoadConceptRelations', null);
+            this.classifierSelectionMenu = new ClassifierSelectionMenu({
+                paper: this.diagram.paper,
+                view: this.diagram,
+                elements: elements,
+                onClose: () => {
+                    this.classifierSelectionMenu.remove();
+                    this.classifierSelectionMenu = undefined;
+                },
+                cancelRegimeInstance: () => {
+                    this.model.trigger('state:regimeInstanceCancelled');
+                },
+            });
+        }).catch(error => {
+            this.model.trigger('state:endLoadConceptRelations', error);
+        });
     }
 
     componentDidMount() {
@@ -114,7 +141,7 @@ export class Workspace extends Component<Props, State> {
         });
 
         this.diagram.listenTo(this.diagram, 'state:regimeInstanceCancelled', () => {
-            // this.markup.props.toolbar.setState({regime: 'class'});
+            this.toolbar.restoreClassRegime();
         });
 
         // Create links toolbox
@@ -138,7 +165,6 @@ export class Workspace extends Component<Props, State> {
     }
 
     getModel() { return this.model; }
-    getDiagram() { return this.diagram; }
 
     preventTextSelectionUntilMouseUp() { this.markup.preventTextSelection(); }
 
@@ -245,7 +271,15 @@ export class Workspace extends Component<Props, State> {
     }
 
     changeRegime = (regime: string) => {
-        this.diagram.setRegime(regime);
+        if(regime === 'individual') {
+            // Show only classifier selection menu. No need to change regime immediately
+            this.showClassifierSelectionMenu();
+        } else {
+            // Remove graph
+            this.diagram.clearPaper();
+            // Change regime to 'class'
+            this.model.setRegime(regime);
+        }
     }
 }
 

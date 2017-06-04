@@ -4,7 +4,6 @@ import * as joint from 'jointjs';
 import { merge, cloneDeep, each } from 'lodash';
 import { createElement } from 'react';
 import { render as reactDOMRender, unmountComponentAtNode } from 'react-dom';
-import {createRequest, SearchCriteria} from '../widgets/instancesSearch';
 
 import {
     TypeStyleResolver,
@@ -22,7 +21,6 @@ import { DefaultTemplateBundle } from '../customization/templates/defaultTemplat
 import { Halo } from '../viewUtils/halo';
 import { ConnectionsMenu } from '../viewUtils/connectionsMenu';
 import { IsAPathMenu } from '../viewUtils/isAPathMenu';
-import {ClassifierSelectionMenu } from '../widgets/classifierSelectionMenu'
 
 import {
     toSVG, ToSVGOptions, toDataURL, ToDataURLOptions,
@@ -66,7 +64,8 @@ export class DiagramView extends Backbone.Model {
     connectionsMenu: ConnectionsMenu;
     isAPathMenu: IsAPathMenu;
 
-    recentlyExtractedElements: Element[];
+    private recentlyExtractedElements: Element[];
+    private visualizedConcepts: ConceptModel[] = [];
 
     readonly selection = new Backbone.Collection<Element>();
 
@@ -164,16 +163,6 @@ export class DiagramView extends Backbone.Model {
             this.selection.reset(elementsToSelect);
             this.model.storeBatchCommand();
         }, 100);
-    }
-
-    setRegime(regime: string) {
-        this.set('regime', regime);
-        this.model.set('regime', regime);
-        if(regime === 'individual') {
-            this.showClassifierSelectionMenu();
-        } else {
-            this.model.setActiveConceptsTreeToClassConceptTree();
-        }
     }
 
     getLanguage(): string { return this.get('language'); }
@@ -410,7 +399,6 @@ export class DiagramView extends Backbone.Model {
     }
 
     previousKCEView() {
-
         if(this.addedConceptsList.length > 0) {
             let lastAddedConcepts = this.addedConceptsList.pop();
             each(lastAddedConcepts, concept => {
@@ -426,8 +414,6 @@ export class DiagramView extends Backbone.Model {
             this.model.requestLinksOfType();
         }
     }
-
-    visualizedConcepts: ConceptModel[] = [];
 
     showNavigationMenu(element: Element) {
         const cellView = this.paper.findViewByModel(element);
@@ -452,33 +438,6 @@ export class DiagramView extends Backbone.Model {
                 this.isAPathMenu = undefined;
             },
         });
-    }
-
-    private classifierSelectionMenu: ClassifierSelectionMenu;
-
-    showClassifierSelectionMenu() {
-        this.clearPaper();
-        this.model.trigger('state:beginLoadConceptRelations');
-        let criterion: SearchCriteria = {elementTypeId: "http://www.w3.org/2002/07/owl#ObjectProperty"};
-        let request = createRequest(criterion, this.getLanguage());
-        this.model.dataProvider.filter(request).then(elements => {
-            this.model.trigger('state:endLoadConceptRelations', null);
-            this.classifierSelectionMenu = new ClassifierSelectionMenu({
-                paper: this.paper,
-                view: this,
-                elements: elements,
-                onClose: () => {
-                    this.classifierSelectionMenu.remove();
-                    this.classifierSelectionMenu = undefined;
-                },
-                cancelRegimeInstance: () => {
-                    this.trigger('state:regimeInstanceCancelled');
-                },
-            });
-        }).catch(error => {
-            this.trigger('state:endLoadConceptRelations', error);
-        });
-
     }
 
     hideNavigationMenu() {
