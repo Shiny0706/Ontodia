@@ -108,7 +108,7 @@ export class Workspace extends Component<Props, State> {
         this.model.dataProvider.filter(request).then(elements => {
             this.model.trigger('state:endLoadConceptRelations', null);
             this.classifierSelectionMenu = new ClassifierSelectionMenu({
-                parent: this.markup.element,
+                paper: this.diagram.paper,
                 view: this.diagram,
                 elements: elements,
                 onClose: () => {
