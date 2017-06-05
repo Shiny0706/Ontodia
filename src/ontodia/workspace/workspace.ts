@@ -116,7 +116,7 @@ export class Workspace extends Component<Props, State> {
                     this.classifierSelectionMenu = undefined;
                 },
                 cancelRegimeInstance: () => {
-                    this.model.trigger('state:regimeInstanceCancelled');
+                    this.toolbar.restoreClassRegime();
                 },
             });
         }).catch(error => {
@@ -159,10 +159,6 @@ export class Workspace extends Component<Props, State> {
         this.diagram.listenTo(this.model, 'state:linksInfoCreated', () => {
             this.forceLayout();
             this.zoomToFit();
-        });
-
-        this.diagram.listenTo(this.diagram, 'state:regimeInstanceCancelled', () => {
-            this.toolbar.restoreClassRegime();
         });
 
         // Create links toolbox
@@ -292,12 +288,12 @@ export class Workspace extends Component<Props, State> {
     }
 
     changeRegime = (regime: string) => {
+        // Remove graph
+        this.diagram.clearPaper();
         if(regime === 'individual') {
             // Show only classifier selection menu. No need to change regime immediately
             this.showClassifierSelectionMenu();
         } else {
-            // Remove graph
-            this.diagram.clearPaper();
             // Change regime to 'class'
             this.model.setRegime(regime);
         }

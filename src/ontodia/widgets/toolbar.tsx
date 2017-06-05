@@ -70,7 +70,6 @@ export class EditorToolbar extends React.Component<Props, State> {
 
     public restoreClassRegime = () => {
         this.regime.value = "class";
-        this.setState({showModal: this.state.showModal, conceptCount: this.state.conceptCount});
     };
 
     render() {
