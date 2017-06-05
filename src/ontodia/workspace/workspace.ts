@@ -175,11 +175,6 @@ export class Workspace extends Component<Props, State> {
         if (!this.props.hideTutorial) {
             showTutorialIfNotSeen();
         }
-
-        this.diagram.listenTo(this.model, 'state:endpointNotFound', () => {
-            this.showMessageDialog('Error', 'Invalid SPARQL endpoint');
-        });
-
     }
 
     componentWillUnmount() {
