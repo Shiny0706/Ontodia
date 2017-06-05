@@ -210,10 +210,7 @@ export class DiagramModel extends Backbone.Model {
             });
         }).catch(err => {
             console.error(err);
-            if(err === 'Not Found') {
-                this.trigger('state:endpointNotFound');
-            }
-            this.trigger('state:endLoad', null, err.errorKind, err.message);
+            this.trigger('state:loadError', {statusText: 'SPARQL endpoint not found'});
         });
     }
 
