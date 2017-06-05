@@ -19,6 +19,7 @@ import { showTutorial, showTutorialIfNotSeen } from '../tutorial/tutorial';
 
 import { WorkspaceMarkup, Props as MarkupProps } from './workspaceMarkup';
 import {ClassifierSelectionMenu} from "../widgets/classifierSelectionMenu";
+import {MessageDialog} from "../viewUtils/messageDialog";
 
 export interface Props {
     onSaveDiagram?: (workspace: Workspace) => void;
@@ -88,7 +89,13 @@ export class Workspace extends Component<Props, State> {
                 onEditAtMainSite: () => this.props.onEditAtMainSite(this),
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
-                onVisualizeWithKCE: (conceptCount: number) => this.diagram.visualizeKeyConcepts(conceptCount),
+                onVisualizeWithKCE: (conceptCount: number) => {
+                    if(conceptCount < 0) {
+                        this.showMessageDialog('Error', 'Invalid number of concepts')
+                    } else {
+                        this.diagram.visualizeKeyConcepts(conceptCount)
+                    }
+                },
                 onChangeRegime: this.changeRegime,
             }),
         } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
@@ -101,7 +108,7 @@ export class Workspace extends Component<Props, State> {
         this.model.dataProvider.filter(request).then(elements => {
             this.model.trigger('state:endLoadConceptRelations', null);
             this.classifierSelectionMenu = new ClassifierSelectionMenu({
-                paper: this.diagram.paper,
+                parent: this.markup.element,
                 view: this.diagram,
                 elements: elements,
                 onClose: () => {
@@ -114,6 +121,20 @@ export class Workspace extends Component<Props, State> {
             });
         }).catch(error => {
             this.model.trigger('state:endLoadConceptRelations', error);
+        });
+    }
+
+    private messageDialog: MessageDialog;
+
+    public showMessageDialog(title: string, message: string) {
+        this.messageDialog = new MessageDialog({
+            title: title,
+            message: message,
+            parentNode: this.markup.element,
+            onClose: () => {
+                this.messageDialog.remove();
+                this.messageDialog = undefined;
+            }
         });
     }
 
@@ -154,6 +175,11 @@ export class Workspace extends Component<Props, State> {
         if (!this.props.hideTutorial) {
             showTutorialIfNotSeen();
         }
+
+        this.diagram.listenTo(this.model, 'state:endpointNotFound', () => {
+            this.showMessageDialog('Error', 'Invalid SPARQL endpoint');
+        });
+
     }
 
     componentWillUnmount() {

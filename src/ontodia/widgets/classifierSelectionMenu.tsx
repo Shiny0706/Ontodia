@@ -1,4 +1,3 @@
-import * as joint from 'jointjs';
 import {difference, each} from "lodash";
 import * as Backbone from 'backbone';
 import * as React from 'react';
@@ -8,11 +7,11 @@ import {Dictionary, ElementModel, ConceptModel, PropertyCount} from '../data/mod
 import { ConceptRelationsBox } from './conceptRelationsBox';
 
 export interface ClassifierSelectionMenuOptions {
-    paper: joint.dia.Paper;
     view: DiagramView;
     elements: Dictionary<ElementModel>;
     onClose: () => void;
     cancelRegimeInstance: () => void;
+    parent: HTMLElement;
 }
 
 export class ClassifierSelectionMenu {
@@ -22,10 +21,13 @@ export class ClassifierSelectionMenu {
     private state: 'loading' | 'completed';
     private links: ElementModel[];
     private markup: ClassifierSelectionMenuMarkup;
+    private parentNode: HTMLElement;
 
     constructor(private options: ClassifierSelectionMenuOptions) {
         this.container = document.createElement('div');
-        this.options.paper.el.appendChild(this.container);
+        this.container.className = 'ontodia__modal-wrapper';
+        this.parentNode = options.parent;
+        this.parentNode.appendChild(this.container);
         this.view = this.options.view;
         this.handler = new Backbone.Model();
         this.render();
@@ -101,7 +103,7 @@ export class ClassifierSelectionMenu {
     remove() {
         this.handler.stopListening();
         ReactDOM.unmountComponentAtNode(this.container);
-        this.options.paper.el.removeChild(this.container);
+        this.parentNode.removeChild(this.container);
     }
 
     private saveClassifierSelection() {

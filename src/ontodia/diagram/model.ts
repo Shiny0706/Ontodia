@@ -210,6 +210,9 @@ export class DiagramModel extends Backbone.Model {
             });
         }).catch(err => {
             console.error(err);
+            if(error === 'Not Found') {
+                this.trigger('state:endpointNotFound');
+            }
             this.trigger('state:endLoad', null, err.errorKind, err.message);
         });
     }
