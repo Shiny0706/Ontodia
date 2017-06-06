@@ -21,9 +21,10 @@ function onWorkspaceMounted(workspace: Workspace) {
     let stardogEndpoint = getParam('uri');
 
     // load default stardog endpoint from config file if param uri not found
-    if(!stardogEndpoint) {
-        workspace.showMessageDialog('Error', 'Unknown SPARQL endpoint. Please specify a SPARQL endpoint as request param uri');
-    }
+    // if(!stardogEndpoint) {
+    //     console.error();
+    //     workspace.showMessageDialog('Error', 'Unknown SPARQL endpoint. Please specify a SPARQL endpoint as request param uri');
+    // }
 
     const layoutData = tryLoadLayoutFromLocalStorage();
     model.importLayout({
