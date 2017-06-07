@@ -92,7 +92,7 @@ export class ClassTree extends Backbone.View<Backbone.Model> {
         if (roots) {
             for (let i = 0; i < roots.length; i++) {
                 let element = roots[i] as TreeClassModel;
-                const icon = this.view.getTypeStyle([element.id]).icon;
+                const icon = this.view.getTypeStyle(element.id, [element.id]).icon;
                 let iconId: string;
                 if (icon) {
                     iconId = _.uniqueId('iconId');
