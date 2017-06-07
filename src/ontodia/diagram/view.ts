@@ -544,12 +544,12 @@ export class DiagramView extends Backbone.Model {
     /**
      * @param types Type signature, MUST BE sorted; see DiagramModel.normalizeData()
      */
-    public getTypeStyle(types: string[], recentlyExtracted?: boolean): TypeStyle {
+    public getTypeStyle(id: string, types: string[], recentlyExtracted?: boolean): TypeStyle {
         types.sort();
 
         let customStyle: CustomTypeStyle;
         for (const resolver of this.typeStyleResolvers) {
-            const result = resolver(types, recentlyExtracted);
+            const result = resolver(id, types, recentlyExtracted);
             if (result) {
                 customStyle = result;
                 break;
@@ -581,9 +581,9 @@ export class DiagramView extends Backbone.Model {
         }
     }
 
-    public getElementTemplate(types: string[]): ElementTemplate {
+    public getElementTemplate(id: string, types: string[]): ElementTemplate {
         for (const resolver of this.templatesResolvers) {
-            const result = resolver(types);
+            const result = resolver(id, types);
             if (result) {
                 return result;
             }

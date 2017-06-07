@@ -17,7 +17,7 @@ export class ListElementView extends React.Component<ListElementViewProps, void>
     render() {
         const {view, model, selected, disabled, ...otherProps} = this.props;
 
-        const {h, c, l} = view.getTypeStyle(model.types).color;
+        const {h, c, l} = view.getTypeStyle(model.id, model.types).color;
         const frontColor = (selected && !disabled) ? hcl(h, c, l * 1.2) : hcl('white');
 
         const disabledClass = disabled ? `${CLASS_NAME}--disabled` : '';
