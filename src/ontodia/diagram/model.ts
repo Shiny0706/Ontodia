@@ -243,6 +243,7 @@ export class DiagramModel extends Backbone.Model {
         let path: ConceptModel[] = [];
         this.virtualLinks = [];
         this.paths = this.calcAllPaths(this.activeConceptTree, path);
+
     }
 
     setConceptTree(rootConcept: ConceptModel, propertyCount: PropertyCount[]) {
@@ -584,6 +585,16 @@ export class DiagramModel extends Backbone.Model {
                 }
             }
 
+            // Include root concept if it is not included in bestConceptSet
+            if(bestConceptSet.indexOf(this.activeConceptTree) < 0) {
+                // Find concept with the worst overall score
+                let worstOverallScoreConcept = this.findConceptWithWorstOverallScore(bestConceptSet);
+                // Exclude worst concept
+                let excludedWorstScoreConceptSet = difference(bestConceptSet, [worstOverallScoreConcept]);
+                // Create new conceptSet to compare scores with current best concept set
+                bestConceptSet = union(excludedWorstScoreConceptSet, [this.activeConceptTree]);
+            }
+
             this.keyConcepts = bestConceptSet;
         }
 
@@ -714,10 +725,13 @@ export class DiagramModel extends Backbone.Model {
                 }
             }
         });
-        // Normalize basic level of each concepts
-        each(this.concepts, concept => {
-            concept.basicLevel = concept.basicLevel/max;
-        });
+
+        if(max > 0) {
+            // Normalize basic level of each concepts
+            each(this.concepts, concept => {
+                concept.basicLevel = concept.basicLevel/max;
+            });
+        }
     }
 
     /**

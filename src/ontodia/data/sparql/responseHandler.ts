@@ -206,12 +206,12 @@ function updateConceptTree(rootConcept: ConceptModel) {
 }
 
 function getConceptFromClassModel(classModel: ClassModel): ConceptModel {
-    return{
+    let concept = {
         id: classModel.id,
-        children: [],
+        children: [] as ConceptModel[],
         label: classModel.label,
         count: classModel.count,
-        parent: [],
+        parent: [] as ConceptModel[],
         aGlobalDensity: 0,
         globalDensity: 0,
         localDensity: 0,
@@ -223,13 +223,14 @@ function getConceptFromClassModel(classModel: ClassModel): ConceptModel {
         propertyCount: 0,
         score: 0,
         overallScore: 0,
-        covered: [] ,
-        allSuperConcepts: [],
-        allSubConcepts: [],
-        indirectSubConcepts: [],
-        subKeyConcepts: [],
+        covered: [] as ConceptModel[],
+        allSuperConcepts: [] as ConceptModel[],
+        allSubConcepts: [] as ConceptModel[],
+        indirectSubConcepts: [] as ConceptModel[],
+        subKeyConcepts: [] as ConceptModel[],
         presentOnDiagram: false,
     };
+    return concept;
 }
 
 export function getInstanceConceptsTree(response: SparqlResponse<ConceptBinding>) : ConceptModel{

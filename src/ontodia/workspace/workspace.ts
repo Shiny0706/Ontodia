@@ -90,7 +90,7 @@ export class Workspace extends Component<Props, State> {
                 isEmbeddedMode: this.props.isViewOnly,
                 isDiagramSaved: this.props.isDiagramSaved,
                 onVisualizeWithKCE: (conceptCount: number) => {
-                    if(conceptCount < 0) {
+                    if(conceptCount <= 0) {
                         this.showMessageDialog('Error', 'Invalid number of concepts')
                     } else {
                         this.diagram.visualizeKeyConcepts(conceptCount)
