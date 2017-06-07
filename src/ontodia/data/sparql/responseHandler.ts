@@ -14,11 +14,13 @@ const NAME_INDIVIDUAL_URI = "http://www.w3.org/2002/07/owl#NamedIndividual";
 const CLASS_URI = "http://www.w3.org/2002/07/owl#Class";
 const DATA_TYPE_PROPERTY_URI = "http://www.w3.org/2002/07/owl#DatatypeProperty";
 const FUNCTIONAL_PROPERTY_URI = "http://www.w3.org/2002/07/owl#FunctionalProperty";
+const INVERSE_FUNCTIONAL_PROPERTY_URI = "http://www.w3.org/2002/07/owl#InverseFunctionalProperty";
 const OBJECT_PROPERTY_URI = "http://www.w3.org/2002/07/owl#ObjectProperty";
 const TRANSITIVE_PROPERTY_URI = "http://www.w3.org/2002/07/owl#TransitiveProperty";
 const SYMMETRIC_PROPERTY_URI = "http://www.w3.org/2002/07/owl#SymmetricProperty";
 const ANNOTATION_PROPERTY_URI = "http://www.w3.org/2002/07/owl#AnnotationProperty";
 const DISJOINT_CLASSES_URI = "http://www.w3.org/2002/07/owl#DisjointClasses";
+const ALL_DISJOINT_CLASSES_URI = "http://www.w3.org/2002/07/owl#AllDisjointClasses";
 const ALL_DIFFERENT_URI = "http://www.w3.org/2002/07/owl#AllDifferent";
 const RESTRICTION_URI = "http://www.w3.org/2002/07/owl#Restriction";
 const ONTOLOGY_URI = "http://www.w3.org/2002/07/owl#Ontology";
@@ -26,7 +28,8 @@ const ONTOLOGY_URI = "http://www.w3.org/2002/07/owl#Ontology";
 const PRIMITIVE_TYPE = [THING_URI, LABEL_URI, NAME_INDIVIDUAL_URI, CLASS_URI,
     DATA_TYPE_PROPERTY_URI, FUNCTIONAL_PROPERTY_URI, OBJECT_PROPERTY_URI,
     TRANSITIVE_PROPERTY_URI, SYMMETRIC_PROPERTY_URI, ANNOTATION_PROPERTY_URI,
-    DISJOINT_CLASSES_URI, ALL_DIFFERENT_URI, ONTOLOGY_URI, RESTRICTION_URI];
+    DISJOINT_CLASSES_URI, ALL_DIFFERENT_URI, ONTOLOGY_URI, RESTRICTION_URI,
+    INVERSE_FUNCTIONAL_PROPERTY_URI, ALL_DISJOINT_CLASSES_URI];
 
 export function getClassTree(response: SparqlResponse<ClassBinding>): [ClassModel[], ConceptModel] {
     const sNodes = response.results.bindings;
@@ -269,6 +272,10 @@ export function getInstanceConceptsTree(response: SparqlResponse<ConceptBinding>
             childNode.parent.push(createdTreeNodes[sNodeId]);
             createdTreeNodes[sNodeId].children.push(childNode);
         }
+    }
+
+    if(Object.keys(createdTreeNodes).length === 0) {
+        return undefined;
     }
 
     let rootConcept = getRootOfConceptsTree(createdTreeNodes);

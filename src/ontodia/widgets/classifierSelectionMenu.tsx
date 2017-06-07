@@ -128,10 +128,14 @@ export class ClassifierSelectionMenu {
             dataProvider.propertyCountOfIndividuals()
             ])
             .then(([instanceConceptsTree, propertyCount]) => {
-                this.view.model.setConceptTree(instanceConceptsTree, propertyCount);
-                this.view.model.setRegime('individual');
-                this.view.clearPaper();
                 this.options.onClose();
+                if(instanceConceptsTree === undefined) {
+                    this.view.model.trigger('state:invalidClassifier');
+                } else {
+                    this.view.model.setConceptTree(instanceConceptsTree, propertyCount);
+                    this.view.model.setRegime('individual');
+                    this.view.clearPaper();
+                }
             });
     }
 }
