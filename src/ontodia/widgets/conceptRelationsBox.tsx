@@ -33,10 +33,10 @@ export class ConceptRelationsBox extends React.Component<ConceptRelationsBoxProp
         };
     }
 
-    // TODO: type of e should be DragEvent
-    private onDragDrop = (e: DragEvent) => {
+    // e is recognized as DragEvent<HTMLDivElement>
+    private onDragDrop = (e: Object) => {
         if (this.props.onDragDrop) {
-            this.props.onDragDrop(e);
+            this.props.onDragDrop(e as DragEvent);
         }
     };
 
