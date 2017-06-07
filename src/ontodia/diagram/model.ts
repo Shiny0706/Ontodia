@@ -72,6 +72,9 @@ export class DiagramModel extends Backbone.Model {
 
     private keyConcepts: ConceptModel[];
 
+    private calcBasicMetricsOfClassConcepts: boolean = false;
+    private calcBasicMetricsOfInstanceConcepts: boolean = false;
+
     constructor(isViewOnly = false) {
         super();
         this.set('isViewOnly', isViewOnly);
@@ -539,9 +542,21 @@ export class DiagramModel extends Backbone.Model {
      * @return - key concepts
      */
     public extractKeyConcepts(n: number): ConceptModel[]{
-        this.calcDensityOfConcepts();
-        this.calcNaturalCategoryValueOfConcepts();
-        this.calcScoreOfConcepts();
+        if(this.activeConceptTree == this.classConceptTree) {
+            if(!this.calcBasicMetricsOfClassConcepts) {
+                this.calcDensityOfConcepts();
+                this.calcNaturalCategoryValueOfConcepts();
+                this.calcScoreOfConcepts();
+                this.calcBasicMetricsOfClassConcepts = true;
+            }
+        } else {
+            if(!this.calcBasicMetricsOfInstanceConcepts) {
+                this.calcDensityOfConcepts();
+                this.calcNaturalCategoryValueOfConcepts();
+                this.calcScoreOfConcepts();
+                this.calcBasicMetricsOfInstanceConcepts = true;
+            }
+        }
 
         if(n >= this.concepts.length) {
             this.keyConcepts = this.concepts;
@@ -661,15 +676,15 @@ export class DiagramModel extends Backbone.Model {
         let maxContribution = this.findMaxContribution(concepts);
 
         each(concepts, concept =>  {
-            let overallScore = this.WEIGHT_CO * concept.contribution/maxContribution
-                + this.WEIGHT_CR * concept.score;
+            let overallScore = this.WEIGHT_CR * concept.score;
+            // check for situation when maxContribution = 0
+            if(maxContribution !=  0) {
+                overallScore += this.WEIGHT_CO * concept.contribution/maxContribution
+            }
             concept.overallScore = overallScore;
             sumOverallScore += overallScore;
         });
 
-        if(!sumOverallScore) {
-
-        }
         return sumOverallScore/concepts.length;
     }
 
@@ -761,10 +776,14 @@ export class DiagramModel extends Backbone.Model {
             }
         });
 
-        // Calc densities
+        // Calc global density of concepts
         this.concepts.forEach(concept => {
             // Calc global density
             concept.globalDensity = concept.aGlobalDensity / this.maxAGlobalDensity;
+        });
+
+        // Calc local density of concepts, this calculation should go after calc global
+        this.concepts.forEach(concept => {
             // Calc local density
             this.calcLocalDensity(concept);
             // Calc density
@@ -788,6 +807,7 @@ export class DiagramModel extends Backbone.Model {
                 maxWeightedGlobalDensity = weightedGlobalDensity;
             }
         });
+
         concept.localDensity = concept.globalDensity/maxWeightedGlobalDensity
             + this.WEIGHT_GDL * concept.globalDensity;
     }
