@@ -161,6 +161,10 @@ export class Workspace extends Component<Props, State> {
             this.zoomToFit();
         });
 
+        this.diagram.listenTo(this.model, 'state:invalidClassifier', () => {
+            this.showMessageDialog('Error', 'Invalid classifier');
+            this.toolbar.restoreClassRegime();
+        });
         // Create links toolbox
         this.linksToolbox = new LinkTypesToolboxShell({
             model: new LinkTypesToolboxModel(this.model),
