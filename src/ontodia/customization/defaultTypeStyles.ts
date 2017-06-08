@@ -3,7 +3,7 @@ import { TypeStyleResolver } from './props';
 const THING_URL = 'http://www.w3.org/2002/07/owl#Thing';
 
 export const DefaultTypeStyleBundle: TypeStyleResolver[] = [
-    (id, types, recentlyExtracted) => {
+    (id: string, types: string[], recentlyExtracted: boolean) => {
         if(id !== THING_URL && types.indexOf(THING_URL) !== -1) {
             return {color: '#eaac77', icon: 'ontodia-class-icon'};
         }
