@@ -5,13 +5,13 @@ const THING_URL = 'http://www.w3.org/2002/07/owl#Thing';
 export const DefaultTypeStyleBundle: TypeStyleResolver[] = [
     (id: string, types: string[], recentlyExtracted: boolean) => {
         if(id !== THING_URL && types.indexOf(THING_URL) !== -1) {
-            return {color: '#eaac77', icon: 'ontodia-class-icon'};
+            return {color: '#bf2f28', icon: 'ontodia-class-icon'};
         }
         if (types.indexOf('http://www.w3.org/2002/07/owl#Class') !== -1 ||
             types.indexOf('http://www.w3.org/2000/01/rdf-schema#Class') !== -1
         ) {
-            if(recentlyExtracted) return {color: '#34c7f3', icon: 'ontodia-class-icon'};
-            return {color: '#eaac77', icon: 'ontodia-class-icon'};
+            if(recentlyExtracted) return {color: '#1377f2', icon: 'ontodia-class-icon'};
+            return {color: '#bf2f28', icon: 'ontodia-class-icon'};
         } else if (types.indexOf('http://www.w3.org/2002/07/owl#NamedIndividual') != -1 && recentlyExtracted){
             return {color: '#34c7f3', icon: undefined};
         }else if (types.indexOf('http://www.w3.org/2002/07/owl#ObjectProperty') !== -1) {
