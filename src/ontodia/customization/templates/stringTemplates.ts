@@ -125,10 +125,10 @@ export const BigIconTemplate = `
         <div class="ontodia-big-icon-template_body" style="border-left-color: {{color}}">
             <div style="flex-grow: 1; text-overflow: ellipsis; overflow: hidden;">
                 <span title="{{label}}" class="ontodia-big-icon-template_body__label">
-                    {{label}}
+                    <b>{{label}}</b>
                 </span>
                 <div title="{{types}}" class="ontodia-big-icon-template_body_type-container">
-                    <div class="ontodia-big-icon-template_body_type-container__type">{{types}}</div>
+                    <div class="ontodia-big-icon-template_body_type-container__type"><b>{{types}}</b></div>
                 </div>
             </div>
             <div class="{{icon}} ontodia-big-icon-template_body__icon" aria-hidden="true" 

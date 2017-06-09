@@ -2,23 +2,23 @@ import { LinkStyle, LinkStyleResolver } from './props';
 
 const LINK_SUB_CLASS_OF: LinkStyle = {
     connection: {
-        stroke: '#f8a485',
+        stroke: '#bf2f28',
         'stroke-width': 2,
     },
     markerTarget: {
-        fill: '#f8a485',
+        fill: '#bf2f28',
         stroke: '#cf8e76',
     },
 };
 
 const LINK_INDIRECT_RELATION: LinkStyle = {
     connection: {
-        stroke: '#f8a485',
+        stroke: '#bf2f28',
         'stroke-width': 2,
         'stroke-dasharray': '5,5',
     },
     markerTarget: {
-        fill: '#f8a485',
+        fill: '#bf2f28',
         stroke: '#cf8e76',
     },
 };
