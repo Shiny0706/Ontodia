@@ -546,7 +546,6 @@ export class DiagramView extends Backbone.Model {
      */
     public getTypeStyle(id: string, types: string[], recentlyExtracted?: boolean): TypeStyle {
         types.sort();
-
         let customStyle: CustomTypeStyle;
         for (const resolver of this.typeStyleResolvers) {
             const result = resolver(id, types, recentlyExtracted);
@@ -562,7 +561,7 @@ export class DiagramView extends Backbone.Model {
             color = hcl(customStyle.color);
         } else {
             const hue = getHueFromClasses(types, this.colorSeed);
-            color = {h: hue, c: 40, l: 75};
+            color = {h: hue + 30, c: 100, l: 55};
         }
         return {icon, color};
     }
