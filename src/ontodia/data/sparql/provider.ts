@@ -69,7 +69,8 @@ export class SparqlDataProvider implements DataProvider {
             SELECT ?concept ?label ?child ?childLabel ?parent ?parentLabel
             WHERE {
               {
-                ?concept a owl:NamedIndividual.
+                ?concept rdf:type ?type.
+                ?type a owl:Class
               }
               OPTIONAL {
                 ?concept rdfs:label ?label.
