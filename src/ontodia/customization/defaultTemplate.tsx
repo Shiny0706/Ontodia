@@ -69,16 +69,17 @@ export class DefaultTemplate extends React.Component<TemplateProps, {}> {
                     </div>
                     <div title={props.types} className='ontodia-default-template_type-line_text-container'>
                         <div className='ontodia-default-template_type-line_text-container__text'>
-                            {props.types}
+                            <b>{props.types}</b>
                         </div>
                     </div>
                 </div>
                 {image}
                 <div className='ontodia-default-template_body' style={{borderColor: props.color}}>
-                    <label className='ontodia-default-template_body__label' title={props.label}>
-                        {props.label}
-                    </label>
-                    {expander}
+
+                        <label className='ontodia-default-template_body__label' title={props.label}>
+                            <b>{props.label}</b>
+                        </label>
+                        {expander}
                 </div>
             </div>
         );
